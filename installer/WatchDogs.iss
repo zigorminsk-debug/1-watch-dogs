@@ -68,7 +68,7 @@ var
 begin
   if CurStep = ssInstall then
   begin
-    Exec('taskkill', '/IM {#MyAppExe} /F', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    Exec('taskkill', '/IM {#MyAppExeName} /F', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
     Exec('taskkill', '/IM {#MyServiceExe} /F', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   end;
 end;
@@ -78,7 +78,7 @@ var
   ResultCode: Integer;
 begin
   Result := True;
-  Exec('taskkill', '/IM {#MyAppExe} /F', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Exec('taskkill', '/IM {#MyAppExeName} /F', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   Exec('taskkill', '/IM {#MyServiceExe} /F', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
 end;
 
