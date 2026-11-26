@@ -29,6 +29,7 @@ WizardStyle=modern
 SetupIconFile=..\assets\watchdogs-icon.ico
 UninstallDisplayIcon={app}\WatchDogs.exe
 UninstallDisplayName={#MyAppName}
+Uninstallable=yes
 CloseApplications=yes
 
 [Messages]
