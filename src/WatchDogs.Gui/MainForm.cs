@@ -136,7 +136,8 @@ namespace WatchDogs.Gui
             _lblTargetService = MakeInfoLabel();
             _lblState = MakeInfoLabel();
             _lblHealthy = MakeInfoLabel();
-            _lblMessage = MakeInfoLabel { Height = 42 };
+            _lblMessage = MakeInfoLabel();
+            _lblMessage.Height = 42;
             _lblLastCheck = MakeInfoLabel();
             _lblCounters = MakeInfoLabel();
 
