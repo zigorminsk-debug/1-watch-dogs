@@ -13,6 +13,8 @@ dist/
 artifacts/
 *.exe
 !installer/**/*.exe
+!releases/
+!releases/*.exe
 
 ## Logs / local
 *.log
