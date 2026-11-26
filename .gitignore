@@ -1,0 +1,22 @@
+## .NET
+bin/
+obj/
+out/
+publish/
+*.user
+*.suo
+.vs/
+*.DotSettings.user
+
+## Installer output
+dist/
+*.exe
+!installer/**/*.exe
+
+## Logs / local
+*.log
+logs/
+
+## OS
+Thumbs.db
+.DS_Store

@@ -1,0 +1,79 @@
+name: Build setup.exe
+
+on:
+  push:
+    branches: [main, 'arena/**']
+    tags: ['v*']
+  pull_request:
+    branches: [main, 'arena/**']
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Build solution (Release)
+        run: dotnet build WatchDogs.sln -c Release --verbosity minimal
+
+      - name: Verify build outputs
+        shell: pwsh
+        run: |
+          $gui  = "src\WatchDogs.Gui\bin\Release\net48\WatchDogs.exe"
+          $svc  = "src\WatchDogs.Service\bin\Release\net48\WatchDogs.Service.exe"
+          $core = "src\WatchDogs.Service\bin\Release\net48\WatchDogs.Core.dll"
+          foreach ($f in @($gui, $svc, $core)) {
+            if (-not (Test-Path $f)) { throw "Missing build output: $f" }
+            Write-Host "OK $f ($((Get-Item $f).Length) bytes)"
+          }
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: |
+          choco install innosetup -y --no-progress
+          if ($LASTEXITCODE -ne 0) { throw "choco install innosetup failed" }
+
+      - name: Compile installer (setup.exe)
+        shell: pwsh
+        run: |
+          $candidates = @(
+            "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
+            "$env:ProgramFiles\Inno Setup 6\ISCC.exe",
+            "${env:ProgramFiles(x86)}\Inno Setup 5\ISCC.exe"
+          )
+          $iscc = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $iscc) { throw "ISCC.exe not found" }
+          Write-Host "Using $iscc"
+          & $iscc installer\WatchDogs.iss
+          if ($LASTEXITCODE -ne 0) { throw "ISCC failed with exit code $LASTEXITCODE" }
+
+      - name: Collect artifacts
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path artifacts | Out-Null
+          Copy-Item dist\*.exe artifacts\
+          Get-ChildItem artifacts | Format-Table Name, Length
+
+      - name: Upload setup.exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: WatchDogs-Setup
+          path: artifacts/*.exe
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Create GitHub Release (tags only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*.exe
+          generate_release_notes: true
