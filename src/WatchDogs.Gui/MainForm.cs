@@ -1,7 +1,12 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
+using System.Drawing.Drawing2D;
+using System.Drawing.Imaging;
 using System.IO;
+using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using WatchDogs.Core;
@@ -10,61 +15,63 @@ namespace WatchDogs.Gui
 {
     public sealed class MainForm : Form
     {
-        // --- status controls ---
+        // --- status ---
         private Label _lblMonitorService;
-        private Label _lblTargetService;
-        private Label _lblState;
-        private Label _lblHealthy;
-        private Label _lblMessage;
-        private Label _lblCounters;
-        private Label _lblLastCheck;
+        private Label _lblEngineState;
         private Label _lblMonitorHint;
+        private DataGridView _gridStatus;
+        private ToolStripStatusLabel _statusLabel;
 
-        // --- settings controls ---
+        // --- settings: multi-service ---
+        private ListBox _listServices;
         private ComboBox _cbTargetService;
+        private TextBox _txtDisplayName;
         private ComboBox _cbCheckType;
         private TextBox _txtTcpHost;
         private NumericUpDown _numTcpPort;
         private TextBox _txtHttpUrl;
         private NumericUpDown _numInterval;
-        private NumericUpDown _numBootDelay;
         private NumericUpDown _numTimeout;
         private CheckBox _chkAutoRestart;
         private NumericUpDown _numMaxRestarts;
         private NumericUpDown _numCooldown;
-        private CheckBox _chkEnabled;
+        private CheckBox _chkSvcEnabled;
+        private NumericUpDown _numBootDelay;
         private Button _btnSave;
-        private Button _btnRestart1C;
+        private Button _btnDeleteSvc;
+        private Button _btnAddSvc;
+        private Panel _detailPanel;
+        private bool _loadingUi;
 
         // --- log ---
         private TextBox _txtLog;
 
-        // --- common ---
         private Timer _refreshTimer;
         private StatusStrip _statusStrip;
-        private ToolStripStatusLabel _statusLabel;
+
+        // in-memory working copy of config
+        private AppConfig _cfg;
 
         public MainForm()
         {
-            Text = "Watch Dogs — мониторинг службы 1С";
-            Width = 960;
-            Height = 720;
-            MinimumSize = new Size(860, 640);
+            Text = "Watch Dogs — мониторинг служб 1С";
+            Width = 1040;
+            Height = 740;
+            MinimumSize = new Size(900, 640);
             StartPosition = FormStartPosition.CenterScreen;
             Font = new Font("Segoe UI", 9F);
             AutoScaleMode = AutoScaleMode.Dpi;
 
-            var tabs = new TabControl { Dock = DockStyle.Fill };
+            ApplyBackgroundIcon();
 
-            // ===================== Tab 1: Status =====================
+            var tabs = new TabControl { Dock = DockStyle.Fill, Padding = new Point(12, 6) };
+
             var tabStatus = new TabPage("Состояние");
             BuildStatusTab(tabStatus);
 
-            // ===================== Tab 2: Settings =====================
             var tabSettings = new TabPage("Настройки");
             BuildSettingsTab(tabSettings);
 
-            // ===================== Tab 3: Logs =====================
             var tabLog = new TabPage("Журнал");
             BuildLogTab(tabLog);
 
@@ -95,13 +102,94 @@ namespace WatchDogs.Gui
 
             Load += (s, e) =>
             {
-                LoadSettings();
+                LoadConfigUi();
                 RefreshStatus();
                 LoadLog();
-                LoadServiceList();
+                LoadServiceListCombo();
             };
 
             FormClosed += (s, e) => _refreshTimer.Stop();
+        }
+
+        // =====================================================================
+        // Background watermark from application icon
+        // =====================================================================
+
+        private void ApplyBackgroundIcon()
+        {
+            try
+            {
+                var icon = LoadEmbeddedIcon();
+                if (icon == null)
+                    return;
+
+                BackColor = Color.White;
+                BackgroundImage = CreateWatermark(icon, 900, 700);
+                BackgroundImageLayout = ImageLayout.Tile;
+                icon.Dispose();
+            }
+            catch
+            {
+                // background is cosmetic — ignore failures
+            }
+        }
+
+        private static Image LoadEmbeddedIcon()
+        {
+            var asm = Assembly.GetExecutingAssembly();
+            var names = asm.GetManifestResourceNames();
+            var name = names.FirstOrDefault(n => n.EndsWith("watchdogs-icon.png", StringComparison.OrdinalIgnoreCase));
+            if (name == null)
+                return null;
+            using (var s = asm.GetManifestResourceStream(name))
+            {
+                if (s == null)
+                    return null;
+                using (var tmp = new Bitmap(s))
+                {
+                    return new Bitmap(tmp);
+                }
+            }
+        }
+
+        /// <summary>Faded watermark tile so UI stays readable.</summary>
+        private static Image CreateWatermark(Image icon, int w, int h)
+        {
+            var bmp = new Bitmap(w, h, PixelFormat.Format32bppArgb);
+            using (var g = Graphics.FromImage(bmp))
+            {
+                g.Clear(Color.White);
+                g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+
+                // soft rounded panel behind content areas
+                using (var brush = new SolidBrush(Color.FromArgb(18, 0, 90, 160)))
+                {
+                    g.FillRectangle(brush, 0, 0, w, h);
+                }
+
+                // large faded icon bottom-right
+                var size = Math.Min(w, h) * 55 / 100;
+                var x = w - size - 24;
+                var y = h - size - 48;
+                var cm = new ColorMatrix { Matrix33 = 0.10f }; // 10% opacity
+                using (var ia = new ImageAttributes())
+                {
+                    ia.SetColorMatrix(cm);
+                    g.DrawImage(icon, new Rectangle(x, y, size, size),
+                        0, 0, icon.Width, icon.Height, GraphicsUnit.Pixel, ia);
+                }
+
+                // smaller mark top-right
+                var size2 = 72;
+                using (var ia = new ImageAttributes())
+                {
+                    var cm2 = new ColorMatrix { Matrix33 = 0.16f };
+                    ia.SetColorMatrix(cm2);
+                    g.DrawImage(icon, new Rectangle(w - size2 - 16, 12, size2, size2),
+                        0, 0, icon.Width, icon.Height, GraphicsUnit.Pixel, ia);
+                }
+            }
+            return bmp;
         }
 
         // =====================================================================
@@ -115,17 +203,24 @@ namespace WatchDogs.Gui
                 Dock = DockStyle.Fill,
                 Padding = new Padding(12),
                 ColumnCount = 2,
-                RowCount = 10
+                RowCount = 6,
+                BackColor = Color.FromArgb(252, 252, 254)
             };
-            root.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 200));
+            root.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 190));
             root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+            root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 
             var title = new Label
             {
-                Text = "Служба мониторинга Watch Dogs",
+                Text = "Watch Dogs — состояние мониторинга",
                 Font = new Font(Font, FontStyle.Bold),
                 AutoSize = true,
-                Margin = new Padding(0, 0, 0, 8)
+                Margin = new Padding(0, 0, 0, 2)
             };
             root.Controls.Add(title, 0, 0);
             root.SetColumnSpan(title, 2);
@@ -143,32 +238,53 @@ namespace WatchDogs.Gui
             _lblMonitorHint = new Label
             {
                 AutoSize = false,
-                Height = 38,
+                Height = 36,
                 Text = "",
                 ForeColor = Color.DarkRed,
                 Font = new Font(Font, FontStyle.Bold),
                 Margin = new Padding(0, 0, 0, 8)
             };
             root.Controls.Add(_lblMonitorHint, 0, 2);
-            root.SetColumnSpan(_lblMonitorHint, 2); // hint
+            root.SetColumnSpan(_lblMonitorHint, 2);
 
             _lblMonitorService = MakeInfoLabel();
-            _lblTargetService = MakeInfoLabel();
-            _lblState = MakeInfoLabel();
-            _lblHealthy = MakeInfoLabel();
-            _lblMessage = MakeInfoLabel();
-            _lblMessage.Height = 42;
-            _lblLastCheck = MakeInfoLabel();
-            _lblCounters = MakeInfoLabel();
+            _lblEngineState = MakeInfoLabel();
+            AddStatusRow(root, 3, "Служба мониторинга:", _lblMonitorService);
+            // put engine on same visual block — use row 3 second column via nested? keep simple:
+            // Actually AddStatusRow uses two rows; adjust:
+            // We'll put engine state into monitor hint area on refresh instead.
 
-            var row = 3;
-            AddStatusRow(root, ref row, "Служба мониторинга:", _lblMonitorService);
-            AddStatusRow(root, ref row, "Служба 1С:", _lblTargetService);
-            AddStatusRow(root, ref row, "Состояние движка:", _lblState);
-            AddStatusRow(root, ref row, "Последняя проверка:", _lblHealthy);
-            AddStatusRow(root, ref row, "Сообщение:", _lblMessage);
-            AddStatusRow(root, ref row, "Время проверки (UTC):", _lblLastCheck);
-            AddStatusRow(root, ref row, "Счётчики:", _lblCounters);
+            _gridStatus = new DataGridView
+            {
+                Dock = DockStyle.Fill,
+                ReadOnly = true,
+                AllowUserToAddRows = false,
+                AllowUserToDeleteRows = false,
+                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+                RowHeadersVisible = false,
+                BackgroundColor = Color.White,
+                BorderStyle = BorderStyle.FixedSingle,
+                SelectionMode = DataGridViewSelectionMode.FullRowSelect,
+                MultiSelect = false,
+                Margin = new Padding(0, 8, 0, 8)
+            };
+            _gridStatus.Columns.Add("svc", "Служба 1С");
+            _gridStatus.Columns.Add("st", "Статус Windows");
+            _gridStatus.Columns.Add("ok", "Отвечает");
+            _gridStatus.Columns.Add("state", "Движок");
+            _gridStatus.Columns.Add("msg", "Сообщение");
+            _gridStatus.Columns.Add("cnt", "Проверок / перезапусков");
+            _gridStatus.Columns.Add("time", "Проверка (UTC)");
+            _gridStatus.Columns["svc"].FillWeight = 22;
+            _gridStatus.Columns["st"].FillWeight = 12;
+            _gridStatus.Columns["ok"].FillWeight = 10;
+            _gridStatus.Columns["state"].FillWeight = 12;
+            _gridStatus.Columns["msg"].FillWeight = 28;
+            _gridStatus.Columns["cnt"].FillWeight = 16;
+            _gridStatus.Columns["time"].FillWeight = 18;
+
+            root.Controls.Add(_gridStatus, 0, 4);
+            root.SetColumnSpan(_gridStatus, 2);
 
             var btnPanel = new FlowLayoutPanel
             {
@@ -176,7 +292,7 @@ namespace WatchDogs.Gui
                 Height = 46,
                 Padding = new Padding(8, 6, 8, 4),
                 FlowDirection = FlowDirection.LeftToRight,
-                WrapContents = true
+                BackColor = Color.FromArgb(252, 252, 254)
             };
 
             void AddBtn(string text, EventHandler onClick)
@@ -199,11 +315,12 @@ namespace WatchDogs.Gui
             AddBtn("Удалить службу", async (s, e) => await UninstallMonitoringServiceAsync());
             AddBtn("Открыть логи", (s, e) => OpenLogFolder());
 
+            tab.BackColor = Color.FromArgb(252, 252, 254);
             tab.Controls.Add(root);
             tab.Controls.Add(btnPanel);
         }
 
-        private static void AddStatusRow(TableLayoutPanel root, ref int row, string caption, Label value)
+        private static void AddStatusRow(TableLayoutPanel root, int row, string caption, Label value)
         {
             var lbl = new Label
             {
@@ -219,7 +336,6 @@ namespace WatchDogs.Gui
 
             root.Controls.Add(lbl, 0, row);
             root.Controls.Add(value, 1, row);
-            row++;
         }
 
         private static Label MakeInfoLabel()
@@ -234,143 +350,122 @@ namespace WatchDogs.Gui
         }
 
         // =====================================================================
-        // Settings tab — TableLayoutPanel, no overlapping labels
+        // Settings tab — multi-service
         // =====================================================================
 
         private void BuildSettingsTab(TabPage tab)
         {
+            tab.BackColor = Color.FromArgb(252, 252, 254);
+
             var outer = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
                 Padding = new Padding(12, 8, 12, 0),
                 ColumnCount = 1,
-                RowCount = 5
+                RowCount = 5,
+                BackColor = Color.FromArgb(252, 252, 254)
             };
-            outer.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            outer.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             outer.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             outer.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             outer.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+            outer.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            outer.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 
             var hint = new Label
             {
-                Text = "После «Сохранить» служба мониторинга перечитает конфигурацию при следующей проверке " +
-                       "(не позднее интервала). Если служба мониторинга не запущена — автоперезапуск 1С не работает.",
+                Text = "Каждая служба 1С — отдельный профиль контроля. Сохраните — служба мониторинга " +
+                       "перечитает конфигурацию при следующей проверке. Задержка после загрузки — общая для всех.",
                 AutoSize = true,
-                MaximumSize = new Size(900, 0),
+                MaximumSize = new Size(980, 0),
                 ForeColor = Color.DimGray,
-                Margin = new Padding(0, 0, 0, 10)
+                Margin = new Padding(0, 0, 0, 8)
             };
             outer.Controls.Add(hint, 0, 0);
 
-            // ----- Group: target service -----
-            var grpTarget = MakeGroup("Целевая служба 1С");
-            var tlpTarget = MakeGroupTable(grpTarget);
-
-            _cbTargetService = new ComboBox
+            // ---- top: global boot delay ----
+            var globalPanel = new FlowLayoutPanel
             {
-                DropDownStyle = ComboBoxStyle.DropDown,
-                AutoCompleteMode = AutoCompleteMode.SuggestAppend,
-                AutoCompleteSource = AutoCompleteSource.ListItems,
-                Dock = DockStyle.Fill,
-                Margin = new Padding(0, 3, 0, 3)
-            };
-            var btnPick = new Button
-            {
-                Text = "Из списка…",
                 AutoSize = true,
-                Padding = new Padding(10, 2, 10, 2),
-                Margin = new Padding(8, 2, 0, 2)
+                FlowDirection = FlowDirection.LeftToRight,
+                Margin = new Padding(0, 0, 0, 8),
+                BackColor = Color.FromArgb(240, 246, 252)
             };
-            btnPick.Click += (s, e) => PickService();
-
-            _cbCheckType = new ComboBox
+            globalPanel.Controls.Add(new Label
             {
-                DropDownStyle = ComboBoxStyle.DropDownList,
-                Dock = DockStyle.Fill,
-                Margin = new Padding(0, 3, 0, 3)
-            };
-            _cbCheckType.Items.AddRange(new object[]
-            {
-                "Статус службы (Running)",
-                "Статус + TCP-порт",
-                "Статус + HTTP-адрес"
+                Text = "Задержка после загрузки системы (мин):",
+                AutoSize = true,
+                Margin = new Padding(8, 8, 8, 8)
             });
-            _cbCheckType.SelectedIndex = 0;
-
-            AddLabeledRow(tlpTarget, 0, "Имя службы (Service Name):", _cbTargetService, btnPick);
-            AddLabeledRow(tlpTarget, 1, "Тип проверки «отвечает»:", _cbCheckType);
-
-            var tcpHint = new Label
+            _numBootDelay = MakeNum(0, 1440, 5);
+            _numBootDelay.Margin = new Padding(0, 4, 16, 4);
+            globalPanel.Controls.Add(_numBootDelay);
+            globalPanel.Controls.Add(new Label
             {
-                Text = "TCP/HTTP — когда нужно проверять не только факт запуска, но и ответ процесса 1С.",
+                Text = "— общая: сначала ждём этот интервал, затем проверяем все службы из списка.",
                 AutoSize = true,
                 ForeColor = Color.DimGray,
-                Margin = new Padding(0, 4, 0, 0)
-            };
-            tlpTarget.Controls.Add(tcpHint, 1, 2);
-            outer.Controls.Add(grpTarget, 0, 1);
+                Margin = new Padding(0, 8, 8, 8)
+            });
+            outer.Controls.Add(globalPanel, 0, 1);
 
-            // ----- Group: deep check -----
-            var grpDeep = MakeGroup("Параметры глубокой проверки");
-            var tlpDeep = MakeGroupTable(grpDeep);
-
-            _txtTcpHost = new TextBox { Dock = DockStyle.Fill, Text = "localhost", Margin = new Padding(0, 3, 0, 3) };
-            _numTcpPort = MakeNum(1, 65535, 1541);
-            _numTcpPort.Dock = DockStyle.Left;
-            _numTcpPort.Width = 100;
-            _txtHttpUrl = new TextBox { Dock = DockStyle.Fill, Text = "http://localhost/health", Margin = new Padding(0, 3, 0, 3) };
-
-            var hostPanel = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3, Height = 30 };
-            hostPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            hostPanel.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-            hostPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 100));
-            hostPanel.Controls.Add(_txtTcpHost, 0, 0);
-            var lblPort = new Label { Text = "порт:", AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(8, 6, 4, 0) };
-            hostPanel.Controls.Add(lblPort, 1, 0);
-            hostPanel.Controls.Add(_numTcpPort, 2, 0);
-
-            AddLabeledRow(tlpDeep, 0, "TCP хост:", hostPanel);
-            AddLabeledRow(tlpDeep, 1, "HTTP URL:", _txtHttpUrl);
-            outer.Controls.Add(grpDeep, 0, 2);
-
-            // ----- Group: timing / restart -----
-            var grpTiming = MakeGroup("Тайминги, перезапуск и включение");
-            var tlpTiming = MakeGroupTable(grpTiming);
-
-            _chkAutoRestart = new CheckBox
+            // ---- middle: split list | detail ----
+            var split = new SplitContainer
             {
-                Text = "Автоматически перезапускать службу 1С при отказе",
-                AutoSize = true,
-                Checked = true,
-                Margin = new Padding(0, 2, 0, 2)
+                Dock = DockStyle.Fill,
+                Orientation = Orientation.Vertical,
+                SplitterDistance = 280,
+                FixedPanel = FixedPanel.Panel1,
+                Margin = new Padding(0)
             };
-            _chkEnabled = new CheckBox
+
+            // left: service list
+            var left = new Panel { Dock = DockStyle.Fill, Padding = new Padding(0, 0, 8, 0) };
+            var listTitle = new Label
             {
-                Text = "Мониторинг включён",
-                AutoSize = true,
-                Checked = true,
-                Margin = new Padding(0, 2, 0, 10)
+                Text = "Службы в мониторинге:",
+                Dock = DockStyle.Top,
+                Height = 24,
+                Font = new Font(Font, FontStyle.Bold)
             };
-            tlpTiming.Controls.Add(_chkAutoRestart, 1, 0);
-            tlpTiming.Controls.Add(_chkEnabled, 1, 1);
-            tlpTiming.Controls.Add(new Label { AutoSize = true }, 0, 0);
-            tlpTiming.Controls.Add(new Label { AutoSize = true }, 0, 1);
+            _listServices = new ListBox
+            {
+                Dock = DockStyle.Fill,
+                DisplayMember = "Title",
+                IntegralHeight = false
+            };
+            _listServices.SelectedIndexChanged += (s, e) => ShowSelectedService();
 
-            _numInterval = MakeNum(5, 86400, 30);
-            _numBootDelay = MakeNum(0, 1440, 5);
-            _numTimeout = MakeNum(1, 300, 10);
-            _numMaxRestarts = MakeNum(1, 100, 5);
-            _numCooldown = MakeNum(0, 1440, 5);
+            var listBtns = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Bottom,
+                Height = 40,
+                FlowDirection = FlowDirection.LeftToRight
+            };
+            _btnAddSvc = new Button { Text = "+ Добавить", AutoSize = true, Padding = new Padding(8, 2, 8, 2) };
+            _btnAddSvc.Click += (s, e) => AddService();
+            _btnDeleteSvc = new Button { Text = "Удалить", AutoSize = true, Padding = new Padding(8, 2, 8, 2) };
+            _btnDeleteSvc.Click += (s, e) => DeleteSelectedService();
+            listBtns.Controls.Add(_btnAddSvc);
+            listBtns.Controls.Add(_btnDeleteSvc);
 
-            AddLabeledRow(tlpTiming, 2, "Интервал проверки (сек):", _numInterval);
-            AddLabeledRow(tlpTiming, 3, "Задержка после загрузки (мин):", _numBootDelay);
-            AddLabeledRow(tlpTiming, 4, "Таймаут ответа (сек):", _numTimeout);
-            AddLabeledRow(tlpTiming, 5, "Макс. перезапусков подряд:", _numMaxRestarts);
-            AddLabeledRow(tlpTiming, 6, "Пауза между перезапусками (мин):", _numCooldown);
-            outer.Controls.Add(grpTiming, 0, 3);
+            left.Controls.Add(_listServices);
+            left.Controls.Add(listBtns);
+            left.Controls.Add(listTitle);
 
-            // ----- Bottom buttons -----
+            // right: detail form
+            _detailPanel = new Panel
+            {
+                Dock = DockStyle.Fill,
+                AutoScroll = true,
+                Padding = new Padding(8, 0, 0, 0)
+            };
+            BuildDetailControls(_detailPanel);
+
+            split.Panel1.Controls.Add(left);
+            split.Panel2.Controls.Add(_detailPanel);
+            outer.Controls.Add(split, 0, 2);
+
+            // ---- save bar ----
             var btnPanel = new FlowLayoutPanel
             {
                 Dock = DockStyle.Bottom,
@@ -380,17 +475,122 @@ namespace WatchDogs.Gui
             };
 
             _btnSave = MakeActionButton("Сохранить настройки", async (s, e) => await SaveSettingsAsync(), true);
-            var btnReload = MakeActionButton("Загрузить текущие", (s, e) => LoadSettings(), false);
-            var btnTest = MakeActionButton("Проверить сейчас", async (s, e) => await TestCheckAsync(), false);
-            _btnRestart1C = MakeActionButton("Перезапустить 1С", async (s, e) => await RestartFromSettingsAsync(), false);
+            var btnReload = MakeActionButton("Загрузить текущие", (s, e) => LoadConfigUi(), false);
+            var btnTest = MakeActionButton("Проверить выбранную", async (s, e) => await TestCheckAsync(), false);
+            var btnRestart = MakeActionButton("Перезапустить выбранную", async (s, e) => await RestartFromSettingsAsync(), false);
 
             btnPanel.Controls.Add(_btnSave);
             btnPanel.Controls.Add(btnReload);
             btnPanel.Controls.Add(btnTest);
-            btnPanel.Controls.Add(_btnRestart1C);
+            btnPanel.Controls.Add(btnRestart);
+            outer.Controls.Add(btnPanel, 0, 3);
 
-            outer.Controls.Add(btnPanel, 0, 4);
+            // developer footer
+            var foot = new Label
+            {
+                Text = "csl.by · +375 29 337-14-12",
+                AutoSize = true,
+                ForeColor = Color.SteelBlue,
+                Margin = new Padding(0, 4, 0, 8)
+            };
+            outer.Controls.Add(foot, 0, 4);
+
             tab.Controls.Add(outer);
+        }
+
+        private void BuildDetailControls(Panel parent)
+        {
+            var tlp = new TableLayoutPanel
+            {
+                Dock = DockStyle.Top,
+                AutoSize = true,
+                ColumnCount = 2,
+                Padding = new Padding(0, 4, 0, 4)
+            };
+            tlp.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 240));
+            tlp.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+
+            int row = 0;
+
+            void Row(string caption, Control c)
+            {
+                while (tlp.RowStyles.Count <= row)
+                    tlp.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+                var lbl = new Label
+                {
+                    Text = caption,
+                    AutoSize = true,
+                    Anchor = AnchorStyles.Left,
+                    Margin = new Padding(0, 7, 8, 0)
+                };
+                c.Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top;
+                c.Margin = new Padding(0, 4, 0, 4);
+                tlp.Controls.Add(lbl, 0, row);
+                tlp.Controls.Add(c, 1, row);
+                row++;
+            }
+
+            _txtDisplayName = new TextBox { Dock = DockStyle.Fill };
+            Row("Отображаемое имя:", _txtDisplayName);
+
+            _cbTargetService = new ComboBox
+            {
+                DropDownStyle = ComboBoxStyle.DropDown,
+                AutoCompleteMode = AutoCompleteMode.SuggestAppend,
+                AutoCompleteSource = AutoCompleteSource.ListItems,
+                Dock = DockStyle.Fill
+            };
+            var pickPanel = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true };
+            _cbTargetService.Width = 320;
+            var btnPick = new Button { Text = "Из списка…", AutoSize = true, Padding = new Padding(10, 2, 10, 2) };
+            btnPick.Click += (s, e) => PickService();
+            pickPanel.Controls.Add(_cbTargetService);
+            pickPanel.Controls.Add(btnPick);
+            Row("Служба Windows (Name):", pickPanel);
+
+            _cbCheckType = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Dock = DockStyle.Fill };
+            _cbCheckType.Items.AddRange(new object[]
+            {
+                "Статус службы (Running)",
+                "Статус + TCP-порт",
+                "Статус + HTTP-адрес"
+            });
+            Row("Тип проверки:", _cbCheckType);
+
+            _txtTcpHost = new TextBox { Dock = DockStyle.Fill, Text = "localhost" };
+            Row("TCP хост:", _txtTcpHost);
+
+            _numTcpPort = MakeNum(1, 65535, 1541);
+            _numTcpPort.Width = 120;
+            Row("TCP порт:", _numTcpPort);
+
+            _txtHttpUrl = new TextBox { Dock = DockStyle.Fill, Text = "http://localhost/health" };
+            Row("HTTP URL:", _txtHttpUrl);
+
+            _numInterval = MakeNum(5, 86400, 30);
+            Row("Интервал проверки (сек):", _numInterval);
+
+            _numTimeout = MakeNum(1, 300, 10);
+            Row("Таймаут ответа (сек):", _numTimeout);
+
+            _chkSvcEnabled = new CheckBox { Text = "Мониторинг этой службы включён", AutoSize = true, Checked = true };
+            Row("Включение:", _chkSvcEnabled);
+
+            _chkAutoRestart = new CheckBox
+            {
+                Text = "Автоперезапуск при отказе",
+                AutoSize = true,
+                Checked = true
+            };
+            Row("Перезапуск:", _chkAutoRestart);
+
+            _numMaxRestarts = MakeNum(1, 100, 5);
+            Row("Макс. перезапусков подряд:", _numMaxRestarts);
+
+            _numCooldown = MakeNum(0, 1440, 5);
+            Row("Пауза между перезапусками (мин):", _numCooldown);
+
+            parent.Controls.Add(tlp);
         }
 
         private static GroupBox MakeGroup(string text)
@@ -406,62 +606,6 @@ namespace WatchDogs.Gui
             };
         }
 
-        private static TableLayoutPanel MakeGroupTable(GroupBox grp)
-        {
-            var tlp = new TableLayoutPanel
-            {
-                Dock = DockStyle.Fill,
-                AutoSize = true,
-                ColumnCount = 2,
-                RowCount = 1
-            };
-            tlp.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 230));
-            tlp.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            grp.Controls.Add(tlp);
-            return tlp;
-        }
-
-        private static void AddLabeledRow(TableLayoutPanel tlp, int row, string caption, params Control[] controls)
-        {
-            while (tlp.RowStyles.Count <= row)
-                tlp.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-
-            var lbl = new Label
-            {
-                Text = caption,
-                AutoSize = true,
-                Anchor = AnchorStyles.Left,
-                Margin = new Padding(0, 7, 8, 0)
-            };
-
-            tlp.Controls.Add(lbl, 0, row);
-
-            if (controls.Length == 1)
-            {
-                var c = controls[0];
-                c.Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top;
-                if (c.Margin == Padding.Empty || c.Margin.Left == 0 && c.Margin.Top == 0)
-                    c.Margin = new Padding(0, 4, 0, 4);
-                tlp.Controls.Add(c, 1, row);
-            }
-            else
-            {
-                var panel = new FlowLayoutPanel
-                {
-                    Dock = DockStyle.Fill,
-                    AutoSize = true,
-                    WrapContents = false,
-                    Margin = new Padding(0, 2, 0, 2)
-                };
-                foreach (var c in controls)
-                {
-                    c.Margin = new Padding(0, 2, 8, 2);
-                    panel.Controls.Add(c);
-                }
-                tlp.Controls.Add(panel, 1, row);
-            }
-        }
-
         private static NumericUpDown MakeNum(decimal min, decimal max, decimal val)
         {
             return new NumericUpDown
@@ -469,7 +613,7 @@ namespace WatchDogs.Gui
                 Minimum = min,
                 Maximum = max,
                 Value = val,
-                Width = 110,
+                Width = 120,
                 Margin = new Padding(0, 4, 0, 4)
             };
         }
@@ -484,9 +628,7 @@ namespace WatchDogs.Gui
                 Margin = new Padding(0, 0, 8, 0)
             };
             if (primary)
-            {
                 b.Font = new Font(SystemFonts.DefaultFont, FontStyle.Bold);
-            }
             b.Click += onClick;
             return b;
         }
@@ -497,7 +639,8 @@ namespace WatchDogs.Gui
 
         private void BuildLogTab(TabPage tab)
         {
-            var panel = new Panel { Dock = DockStyle.Fill, Padding = new Padding(8) };
+            tab.BackColor = Color.FromArgb(252, 252, 254);
+            var panel = new Panel { Dock = DockStyle.Fill, Padding = new Padding(8), BackColor = Color.White };
 
             _txtLog = new TextBox
             {
@@ -550,50 +693,73 @@ namespace WatchDogs.Gui
                 else if (monitorStatus == "NOT_INSTALLED")
                 {
                     _lblMonitorHint.Text =
-                        "⚠ Служба мониторинга НЕ установлена — автоперезапуск 1С не работает. " +
-                        "Нажмите «Установить службу» на этой вкладке или в настройках после сохранения.";
+                        "⚠ Служба мониторинга НЕ установлена — автоперезапуск не работает. «Установить службу».";
                 }
                 else
                 {
                     _lblMonitorHint.Text =
-                        "⚠ Служба мониторинга установлена, но не запущена (статус: " + monitorStatus + "). " +
-                        "Нажмите «Запустить мониторинг» — иначе автоперезапуск 1С не работает.";
+                        "⚠ Служба мониторинга не запущена (" + monitorStatus + "). «Запустить мониторинг».";
                 }
 
                 var st = ConfigStore.LoadStatus();
-                if (st == null)
+                _gridStatus.Rows.Clear();
+
+                if (st == null || st.Services == null || st.Services.Count == 0)
                 {
-                    _lblTargetService.Text = "—";
-                    _lblState.Text = "нет данных (служба мониторинга ещё не писала status.json)";
-                    _lblHealthy.Text = "—";
-                    _lblHealthy.ForeColor = Color.Gray;
-                    _lblMessage.Text = "—";
-                    _lblLastCheck.Text = "—";
-                    _lblCounters.Text = "—";
+                    if (st != null && !string.IsNullOrEmpty(st.TargetServiceName))
+                    {
+                        // legacy single-service status
+                        _gridStatus.Rows.Add(
+                            st.TargetServiceName,
+                            st.TargetServiceStatus ?? "—",
+                            st.LastCheckHealthy ? "OK" : "FAIL",
+                            st.State ?? "—",
+                            st.LastCheckMessage ?? "—",
+                            st.TotalChecks + " / " + st.TotalRestarts,
+                            st.LastCheckTimeUtc ?? "—");
+                    }
+                    else
+                    {
+                        _lblEngineState.Text = "нет данных";
+                    }
                     return;
                 }
 
-                _lblTargetService.Text =
-                    (st.TargetServiceName ?? "—") + "  →  " + (st.TargetServiceStatus ?? "—");
-                _lblState.Text = st.State ?? "—";
+                _lblEngineState.Text = st.State + (string.IsNullOrEmpty(st.Message) ? "" : " — " + st.Message);
 
-                if (st.State == "WaitingBootDelay")
+                foreach (var s in st.Services)
                 {
-                    _lblHealthy.Text = "ожидание задержки после загрузки…";
-                    _lblHealthy.ForeColor = Color.DarkOrange;
+                    var r = _gridStatus.Rows.Add(
+                        string.IsNullOrWhiteSpace(s.DisplayName)
+                            ? s.TargetServiceName
+                            : s.DisplayName + " (" + s.TargetServiceName + ")",
+                        s.TargetServiceStatus ?? "—",
+                        s.Enabled ? (s.LastCheckHealthy ? "OK" : "FAIL") : "—",
+                        s.State ?? "—",
+                        s.LastCheckMessage ?? "—",
+                        s.TotalChecks + " / " + s.TotalRestarts,
+                        s.LastCheckTimeUtc ?? "—");
+
+                    var row = _gridStatus.Rows[r];
+                    if (s.Enabled && s.State != "Disabled")
+                    {
+                        row.Cells[2].Style.ForeColor = s.LastCheckHealthy ? Color.Green : Color.Firebrick;
+                        if (!s.LastCheckHealthy)
+                            row.Cells[2].Style.Font = new Font(_gridStatus.Font, FontStyle.Bold);
+                    }
+                }
+
+                // fold engine state into hint line when monitor is running
+                if (running)
+                {
+                    _lblMonitorHint.Text = "Движок: " + st.State +
+                                           (string.IsNullOrEmpty(st.Message) ? "" : " — " + st.Message);
+                    _lblMonitorHint.ForeColor = Color.DarkGreen;
                 }
                 else
                 {
-                    _lblHealthy.Text = st.LastCheckHealthy ? "OK — отвечает" : "FAIL — не отвечает";
-                    _lblHealthy.ForeColor = st.LastCheckHealthy ? Color.Green : Color.Firebrick;
+                    _lblMonitorHint.ForeColor = Color.DarkRed;
                 }
-
-                _lblMessage.Text = st.LastCheckMessage ?? "—";
-                _lblLastCheck.Text = st.LastCheckTimeUtc ?? "—";
-                _lblCounters.Text = string.Format(
-                    "проверок: {0}, перезапусков всего: {1}, подряд: {2}, последний: {3}",
-                    st.TotalChecks, st.TotalRestarts, st.ConsecutiveRestarts,
-                    st.LastRestartTimeUtc ?? "—");
             }
             catch (Exception ex)
             {
@@ -654,8 +820,7 @@ namespace WatchDogs.Gui
         {
             var confirm = MessageBox.Show(this,
                 "Удалить службу мониторинга WatchDogsMonitor?\n\n" +
-                "Сама программа и настройки останутся на диске. " +
-                "Полное удаление выполняется через «Установка и удаление программ» Windows.",
+                "Программа и настройки останутся. Полное удаление — «Установка и удаление программ».",
                 "Удаление службы",
                 MessageBoxButtons.YesNo, MessageBoxIcon.Question);
             if (confirm != DialogResult.Yes)
@@ -694,10 +859,166 @@ namespace WatchDogs.Gui
         }
 
         // =====================================================================
-        // Settings logic
+        // Multi-service settings logic
         // =====================================================================
 
-        private void LoadServiceList()
+        private void LoadConfigUi()
+        {
+            try
+            {
+                _loadingUi = true;
+                _cfg = ConfigStore.LoadConfig();
+                if (_cfg.Services == null || _cfg.Services.Count == 0)
+                    _cfg = AppConfig.CreateDefault();
+
+                _numBootDelay.Value = Clamp(_cfg.BootDelayMinutes, 0, 1440);
+                RefreshServiceList(0);
+                SetStatus("Настройки загружены (" + _cfg.Services.Count + " служб)");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, "Не удалось загрузить настройки:\n" + ex.Message,
+                    "Watch Dogs", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+            finally
+            {
+                _loadingUi = false;
+            }
+        }
+
+        private void RefreshServiceList(int selectedIndex)
+        {
+            _listServices.BeginUpdate();
+            _listServices.Items.Clear();
+            foreach (var s in _cfg.Services)
+                _listServices.Items.Add(s);
+            _listServices.EndUpdate();
+
+            if (_listServices.Items.Count == 0)
+            {
+                var def = ServiceConfig.CreateDefault();
+                _cfg.Services.Add(def);
+                _listServices.Items.Add(def);
+            }
+
+            if (selectedIndex < 0 || selectedIndex >= _listServices.Items.Count)
+                selectedIndex = 0;
+            _listServices.SelectedIndex = selectedIndex;
+        }
+
+        private ServiceConfig SelectedService
+        {
+            get { return _listServices.SelectedItem as ServiceConfig; }
+        }
+
+        private void ShowSelectedService()
+        {
+            var svc = SelectedService;
+            var has = svc != null;
+            SetDetailEnabled(has);
+            if (!has || _loadingUi)
+                return;
+
+            _loadingUi = true;
+            try
+            {
+                _txtDisplayName.Text = svc.DisplayName ?? "";
+                _cbTargetService.Text = svc.TargetServiceName ?? "";
+                _cbCheckType.SelectedIndex = Math.Max(0, Math.Min(2, (int)svc.CheckType));
+                _txtTcpHost.Text = svc.TcpHost ?? "localhost";
+                _numTcpPort.Value = Clamp(svc.TcpPort, 1, 65535);
+                _txtHttpUrl.Text = svc.HttpUrl ?? "";
+                _numInterval.Value = Clamp(svc.CheckIntervalSeconds, 5, 86400);
+                _numTimeout.Value = Clamp(svc.ResponseTimeoutSeconds, 1, 300);
+                _chkAutoRestart.Checked = svc.AutoRestart;
+                _numMaxRestarts.Value = Clamp(svc.MaxRestartAttempts, 1, 100);
+                _numCooldown.Value = Clamp(svc.RestartCooldownMinutes, 0, 1440);
+                _chkSvcEnabled.Checked = svc.MonitoringEnabled;
+            }
+            finally
+            {
+                _loadingUi = false;
+            }
+        }
+
+        private void SetDetailEnabled(bool enabled)
+        {
+            foreach (Control c in _detailPanel.Controls)
+                c.Enabled = enabled;
+            // also children of table layout
+            foreach (Control c in _detailPanel.Controls)
+            {
+                foreach (Control cc in c.Controls)
+                    cc.Enabled = enabled;
+            }
+            _btnDeleteSvc.Enabled = enabled;
+        }
+
+        private void ApplyDetailToSelected()
+        {
+            var svc = SelectedService;
+            if (svc == null)
+                return;
+
+            svc.DisplayName = _txtDisplayName.Text;
+            svc.TargetServiceName = (_cbTargetService.Text ?? "").Trim();
+            svc.CheckType = (HealthCheckType)Math.Max(0, Math.Min(2, _cbCheckType.SelectedIndex));
+            svc.TcpHost = _txtTcpHost.Text;
+            svc.TcpPort = (int)_numTcpPort.Value;
+            svc.HttpUrl = _txtHttpUrl.Text;
+            svc.CheckIntervalSeconds = (int)_numInterval.Value;
+            svc.ResponseTimeoutSeconds = (int)_numTimeout.Value;
+            svc.AutoRestart = _chkAutoRestart.Checked;
+            svc.MaxRestartAttempts = (int)_numMaxRestarts.Value;
+            svc.RestartCooldownMinutes = (int)_numCooldown.Value;
+            svc.MonitoringEnabled = _chkSvcEnabled.Checked;
+            svc.Normalize();
+
+            var idx = _listServices.SelectedIndex;
+            _listServices.Refresh();
+            if (idx >= 0 && idx < _listServices.Items.Count)
+                _listServices.SelectedIndex = idx;
+        }
+
+        private void AddService()
+        {
+            ApplyDetailToSelected();
+            var n = _cfg.Services.Count + 1;
+            var svc = ServiceConfig.CreateDefault("1CV8S");
+            svc.DisplayName = "Новая служба " + n;
+            _cfg.Services.Add(svc);
+            RefreshServiceList(_cfg.Services.Count - 1);
+            _cbTargetService.Focus();
+            SetStatus("Добавлена служба — укажите Service Name и сохраните");
+        }
+
+        private void DeleteSelectedService()
+        {
+            var svc = SelectedService;
+            if (svc == null)
+                return;
+
+            if (_cfg.Services.Count <= 1)
+            {
+                MessageBox.Show(this,
+                    "Нужно оставить хотя бы одну службу.\nМожно отключить её галочкой «Мониторинг…».",
+                    "Watch Dogs", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            var r = MessageBox.Show(this,
+                "Удалить из списка службу\n\"" + svc.Title + "\"?\n\nСама Windows-служба 1С не удаляется.",
+                "Удаление из мониторинга",
+                MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+            if (r != DialogResult.Yes)
+                return;
+
+            var idx = _listServices.SelectedIndex;
+            _cfg.Services.Remove(svc);
+            RefreshServiceList(Math.Max(0, idx - 1));
+        }
+
+        private void LoadServiceListCombo()
         {
             try
             {
@@ -711,82 +1032,49 @@ namespace WatchDogs.Gui
             }
             catch
             {
-                // combo stays editable even if enumeration fails
+                // editable combo still works
             }
-        }
-
-        private void LoadSettings()
-        {
-            try
-            {
-                var cfg = ConfigStore.LoadConfig();
-                _cbTargetService.Text = cfg.TargetServiceName ?? "";
-                _cbCheckType.SelectedIndex = Math.Max(0, Math.Min(2, (int)cfg.CheckType));
-                _txtTcpHost.Text = cfg.TcpHost;
-                _numTcpPort.Value = Clamp(cfg.TcpPort, 1, 65535);
-                _txtHttpUrl.Text = cfg.HttpUrl;
-                _numInterval.Value = Clamp(cfg.CheckIntervalSeconds, 5, 86400);
-                _numBootDelay.Value = Clamp(cfg.BootDelayMinutes, 0, 1440);
-                _numTimeout.Value = Clamp(cfg.ResponseTimeoutSeconds, 1, 300);
-                _chkAutoRestart.Checked = cfg.AutoRestart;
-                _numMaxRestarts.Value = Clamp(cfg.MaxRestartAttempts, 1, 100);
-                _numCooldown.Value = Clamp(cfg.RestartCooldownMinutes, 0, 1440);
-                _chkEnabled.Checked = cfg.MonitoringEnabled;
-                SetStatus("Настройки загружены");
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show(this, "Не удалось загрузить настройки:\n" + ex.Message,
-                    "Watch Dogs", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            }
-        }
-
-        private AppConfig CollectSettings()
-        {
-            var cfg = AppConfig.CreateDefault();
-            cfg.TargetServiceName = _cbTargetService.Text;
-            cfg.CheckType = (HealthCheckType)Math.Max(0, Math.Min(2, _cbCheckType.SelectedIndex));
-            cfg.TcpHost = _txtTcpHost.Text;
-            cfg.TcpPort = (int)_numTcpPort.Value;
-            cfg.HttpUrl = _txtHttpUrl.Text;
-            cfg.CheckIntervalSeconds = (int)_numInterval.Value;
-            cfg.BootDelayMinutes = (int)_numBootDelay.Value;
-            cfg.ResponseTimeoutSeconds = (int)_numTimeout.Value;
-            cfg.AutoRestart = _chkAutoRestart.Checked;
-            cfg.MaxRestartAttempts = (int)_numMaxRestarts.Value;
-            cfg.RestartCooldownMinutes = (int)_numCooldown.Value;
-            cfg.MonitoringEnabled = _chkEnabled.Checked;
-            cfg.Normalize();
-            return cfg;
         }
 
         private async Task SaveSettingsAsync()
         {
             try
             {
-                var cfg = CollectSettings();
-                if (string.IsNullOrWhiteSpace(cfg.TargetServiceName))
+                ApplyDetailToSelected();
+
+                if (_cfg.Services.Count == 0)
                 {
-                    MessageBox.Show(this, "Укажите имя службы 1С.", "Watch Dogs",
+                    MessageBox.Show(this, "Добавьте хотя бы одну службу.", "Watch Dogs",
                         MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
-                await Task.Run(() => ConfigStore.SaveConfig(cfg));
-                SetStatus("Настройки сохранены в " + Paths.ConfigPath);
-                Log.Info("Настройки сохранены GUI. Служба 1С='" + cfg.TargetServiceName + "'");
+                foreach (var s in _cfg.Services)
+                {
+                    if (string.IsNullOrWhiteSpace(s.TargetServiceName))
+                    {
+                        MessageBox.Show(this,
+                            "У службы «" + s.Title + "» не задан Service Name.",
+                            "Watch Dogs", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
+                }
 
-                // Ensure monitoring service is running so auto-restart actually works
+                _cfg.BootDelayMinutes = (int)_numBootDelay.Value;
+                _cfg.Normalize();
+
+                await Task.Run(() => ConfigStore.SaveConfig(_cfg));
+                SetStatus("Настройки сохранены: " + _cfg.Services.Count + " служб → " + Paths.ConfigPath);
+                Log.Info("Настройки сохранены GUI. Служб: " + _cfg.Services.Count);
+
                 var monitorStatus = ServiceInstallerHelper.GetStatusText();
                 if (monitorStatus == "NOT_INSTALLED")
                 {
                     var r = MessageBox.Show(this,
-                        "Настройки сохранены.\n\n" +
-                        "Служба мониторинга WatchDogsMonitor ещё НЕ установлена — " +
-                        "автоперезапуск 1С работать не будет.\n\n" +
+                        "Настройки сохранены (" + _cfg.Services.Count + " служб).\n\n" +
+                        "Служба мониторинга НЕ установлена — автоперезапуск работать не будет.\n\n" +
                         "Установить и запустить её сейчас?",
-                        "Watch Dogs",
-                        MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                        "Watch Dogs", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
                     if (r == DialogResult.Yes)
                     {
                         await InstallMonitoringServiceAsync();
@@ -797,11 +1085,9 @@ namespace WatchDogs.Gui
                 else if (!string.Equals(monitorStatus, "Running", StringComparison.OrdinalIgnoreCase))
                 {
                     var r = MessageBox.Show(this,
-                        "Настройки сохранены.\n\n" +
-                        "Служба мониторинга сейчас: " + monitorStatus + ".\n" +
-                        "Запустить её, чтобы автоперезапуск 1С заработал?",
-                        "Watch Dogs",
-                        MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                        "Настройки сохранены.\n\nСлужба мониторинга: " + monitorStatus +
+                        ".\nЗапустить её?",
+                        "Watch Dogs", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
                     if (r == DialogResult.Yes)
                     {
                         await ControlMonitoringServiceAsync(true);
@@ -811,10 +1097,8 @@ namespace WatchDogs.Gui
                 }
 
                 MessageBox.Show(this,
-                    "Настройки сохранены.\n\n" +
-                    "Служба мониторинга перечитает конфигурацию при следующей проверке " +
-                    "(не позднее " + cfg.CheckIntervalSeconds + " сек).\n\n" +
-                    "Файл: " + Paths.ConfigPath,
+                    "Настройки сохранены.\nСлужб в мониторинге: " + _cfg.Services.Count +
+                    "\n\nФайл: " + Paths.ConfigPath,
                     "Watch Dogs", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 RefreshStatus();
             }
@@ -824,32 +1108,39 @@ namespace WatchDogs.Gui
             }
         }
 
+        private ServiceConfig CollectForTest()
+        {
+            ApplyDetailToSelected();
+            var svc = SelectedService;
+            if (svc == null || string.IsNullOrWhiteSpace(svc.TargetServiceName))
+                throw new InvalidOperationException("Выберите службу и укажите Service Name.");
+            _cfg.BootDelayMinutes = (int)_numBootDelay.Value;
+            return svc;
+        }
+
         private async Task TestCheckAsync()
         {
             try
             {
-                var cfg = CollectSettings();
+                var svc = CollectForTest();
                 _btnSave.Enabled = false;
-                var result = await Task.Run(() => HealthChecker.Check(cfg));
+                var result = await Task.Run(() => HealthChecker.Check(svc));
 
                 if (result.IsHealthy)
                 {
                     MessageBox.Show(this,
-                        "OK: " + result.Message + "\nСостояние службы: " + result.ServiceStatus,
-                        "Проверка сейчас",
-                        MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        "OK: " + result.Message + "\nСостояние: " + result.ServiceStatus,
+                        "Проверка", MessageBoxButtons.OK, MessageBoxIcon.Information);
                     return;
                 }
 
                 var answer = MessageBox.Show(this,
                     "FAIL: " + result.Message +
-                    "\nСостояние службы: " + result.ServiceStatus +
-                    "\n\nПерезапустить службу 1С сейчас?",
-                    "Проверка сейчас",
-                    MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
-
+                    "\nСостояние: " + result.ServiceStatus +
+                    "\n\nПерезапустить службу сейчас?",
+                    "Проверка", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
                 if (answer == DialogResult.Yes)
-                    await RestartTargetServiceAsync(cfg);
+                    await RestartTargetServiceAsync(svc);
             }
             catch (Exception ex)
             {
@@ -861,22 +1152,21 @@ namespace WatchDogs.Gui
             }
         }
 
-        private async Task RestartTargetServiceAsync(AppConfig cfg)
+        private async Task RestartTargetServiceAsync(ServiceConfig cfg)
         {
             try
             {
-                SetStatus("Перезапуск службы 1С '" + cfg.TargetServiceName + "'…");
+                SetStatus("Перезапуск '" + cfg.TargetServiceName + "'…");
                 var outcome = await Task.Run(() =>
                 {
                     string msg;
                     var ok = HealthChecker.TryRestart(cfg, out msg);
                     return new { ok, msg };
                 });
-
                 SetStatus(outcome.msg);
-                var icon = outcome.ok ? MessageBoxIcon.Information : MessageBoxIcon.Error;
-                var title = outcome.ok ? "Перезапуск выполнен" : "Ошибка перезапуска";
-                MessageBox.Show(this, outcome.msg, title, MessageBoxButtons.OK, icon);
+                MessageBox.Show(this, outcome.msg,
+                    outcome.ok ? "Перезапуск выполнен" : "Ошибка перезапуска",
+                    MessageBoxButtons.OK, outcome.ok ? MessageBoxIcon.Information : MessageBoxIcon.Error);
                 RefreshStatus();
             }
             catch (Exception ex)
@@ -887,23 +1177,26 @@ namespace WatchDogs.Gui
 
         private async Task RestartFromSettingsAsync()
         {
-            var cfg = CollectSettings();
-            if (string.IsNullOrWhiteSpace(cfg.TargetServiceName))
+            ServiceConfig svc;
+            try
             {
-                MessageBox.Show(this, "Укажите имя службы 1С.", "Watch Dogs",
-                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                svc = CollectForTest();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, ex.Message, "Watch Dogs", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
             var confirm = MessageBox.Show(this,
-                "Перезапустить службу 1С\n\"" + cfg.TargetServiceName + "\"?\n\n" +
-                "Сейчас она: " + HealthChecker.GetServiceStatusText(cfg.TargetServiceName),
+                "Перезапустить службу\n\"" + svc.Title + "\"?\n\nСейчас: " +
+                HealthChecker.GetServiceStatusText(svc.TargetServiceName),
                 "Перезапуск службы 1С",
                 MessageBoxButtons.YesNo, MessageBoxIcon.Question);
             if (confirm != DialogResult.Yes)
                 return;
 
-            await RestartTargetServiceAsync(cfg);
+            await RestartTargetServiceAsync(svc);
         }
 
         private void PickService()
@@ -947,18 +1240,18 @@ namespace WatchDogs.Gui
         }
     }
 
-    /// <summary>Simple modal dialog to pick an installed Windows service.</summary>
+    /// <summary>Modal dialog to pick an installed Windows service.</summary>
     internal sealed class ServicePickerForm : Form
     {
         private readonly ListBox _list;
         private readonly TextBox _filter;
-        private System.Collections.Generic.List<string> _fullList;
+        private List<string> _fullList;
 
         public string SelectedService { get; private set; }
 
         public ServicePickerForm()
         {
-            Text = "Выбор службы 1С";
+            Text = "Выбор службы Windows";
             Width = 520;
             Height = 560;
             StartPosition = FormStartPosition.CenterParent;
@@ -979,16 +1272,14 @@ namespace WatchDogs.Gui
                 Text = "Выбрать",
                 DialogResult = DialogResult.OK,
                 Width = 110,
-                Anchor = AnchorStyles.Top | AnchorStyles.Right,
-                Location = new Point(520 - 130, 10)
+                Anchor = AnchorStyles.Top | AnchorStyles.Right
             };
             var cancel = new Button
             {
                 Text = "Отмена",
                 DialogResult = DialogResult.Cancel,
                 Width = 110,
-                Anchor = AnchorStyles.Top | AnchorStyles.Right,
-                Location = new Point(520 - 250, 10)
+                Anchor = AnchorStyles.Top | AnchorStyles.Right
             };
             bottom.Controls.Add(ok);
             bottom.Controls.Add(cancel);
@@ -996,6 +1287,7 @@ namespace WatchDogs.Gui
             {
                 ok.Left = bottom.ClientSize.Width - ok.Width - 8;
                 cancel.Left = ok.Left - cancel.Width - 8;
+                ok.Top = cancel.Top = 10;
             };
 
             Controls.Add(_list);
@@ -1047,7 +1339,7 @@ namespace WatchDogs.Gui
         {
             if (_fullList == null)
             {
-                _fullList = new System.Collections.Generic.List<string>();
+                _fullList = new List<string>();
                 foreach (var o in _list.Items)
                     _fullList.Add(o.ToString());
             }

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Runtime.Serialization;
 
 namespace WatchDogs.Core
@@ -13,13 +14,17 @@ namespace WatchDogs.Core
         HttpUrl = 2
     }
 
-    /// <summary>All tunable parameters. Stored as JSON in %ProgramData%\WatchDogs\config.json.</summary>
+    /// <summary>Per-service monitoring parameters.</summary>
     [DataContract]
-    public sealed class AppConfig
+    public sealed class ServiceConfig
     {
-        /// <summary>Windows service name of the 1C server to monitor (e.g. 1CV8S).</summary>
+        /// <summary>Windows service name (Service Name, not display name).</summary>
         [DataMember(Name = "targetServiceName")]
         public string TargetServiceName { get; set; }
+
+        /// <summary>Optional human-readable alias shown in the GUI.</summary>
+        [DataMember(Name = "displayName")]
+        public string DisplayName { get; set; }
 
         [DataMember(Name = "checkType")]
         public HealthCheckType CheckType { get; set; }
@@ -37,10 +42,6 @@ namespace WatchDogs.Core
         [DataMember(Name = "checkIntervalSeconds")]
         public int CheckIntervalSeconds { get; set; }
 
-        /// <summary>Delay after system reboot / service start before monitoring begins, minutes.</summary>
-        [DataMember(Name = "bootDelayMinutes")]
-        public int BootDelayMinutes { get; set; }
-
         /// <summary>Timeout for TCP/HTTP response, seconds.</summary>
         [DataMember(Name = "responseTimeoutSeconds")]
         public int ResponseTimeoutSeconds { get; set; }
@@ -48,29 +49,27 @@ namespace WatchDogs.Core
         [DataMember(Name = "autoRestart")]
         public bool AutoRestart { get; set; }
 
-        /// <summary>Max consecutive restarts of the target service before a long cooldown.</summary>
         [DataMember(Name = "maxRestartAttempts")]
         public int MaxRestartAttempts { get; set; }
 
-        /// <summary>Minimum pause between two restarts of the target service, minutes.</summary>
         [DataMember(Name = "restartCooldownMinutes")]
         public int RestartCooldownMinutes { get; set; }
 
-        /// <summary>Master switch: when false the service idles but keeps running.</summary>
+        /// <summary>Per-service enable switch.</summary>
         [DataMember(Name = "monitoringEnabled")]
         public bool MonitoringEnabled { get; set; }
 
-        public static AppConfig CreateDefault()
+        public static ServiceConfig CreateDefault(string serviceName = "1CV8S")
         {
-            return new AppConfig
+            return new ServiceConfig
             {
-                TargetServiceName = "1CV8S",
+                TargetServiceName = serviceName,
+                DisplayName = "",
                 CheckType = HealthCheckType.ServiceStatus,
                 TcpHost = "localhost",
                 TcpPort = 1541,
                 HttpUrl = "http://localhost/health",
                 CheckIntervalSeconds = 30,
-                BootDelayMinutes = 5,
                 ResponseTimeoutSeconds = 10,
                 AutoRestart = true,
                 MaxRestartAttempts = 5,
@@ -79,29 +78,173 @@ namespace WatchDogs.Core
             };
         }
 
-        /// <summary>Clamp values into sane ranges after load.</summary>
         public void Normalize()
         {
             if (TargetServiceName != null)
                 TargetServiceName = TargetServiceName.Trim();
+            if (DisplayName != null)
+                DisplayName = DisplayName.Trim();
 
             if (string.IsNullOrWhiteSpace(TcpHost))
                 TcpHost = "localhost";
-
             if (string.IsNullOrWhiteSpace(HttpUrl))
                 HttpUrl = "http://localhost/health";
-
             if (TcpPort < 1 || TcpPort > 65535)
                 TcpPort = 1541;
 
             CheckIntervalSeconds = Clamp(CheckIntervalSeconds, 5, 86400, 30);
-            BootDelayMinutes = Clamp(BootDelayMinutes, 0, 1440, 5);
             ResponseTimeoutSeconds = Clamp(ResponseTimeoutSeconds, 1, 300, 10);
             MaxRestartAttempts = Clamp(MaxRestartAttempts, 1, 100, 5);
             RestartCooldownMinutes = Clamp(RestartCooldownMinutes, 0, 1440, 5);
 
             if (!Enum.IsDefined(typeof(HealthCheckType), CheckType))
                 CheckType = HealthCheckType.ServiceStatus;
+        }
+
+        public string Title
+        {
+            get
+            {
+                if (!string.IsNullOrWhiteSpace(DisplayName))
+                    return DisplayName + "  (" + TargetServiceName + ")";
+                return TargetServiceName ?? "—";
+            }
+        }
+
+        public ServiceConfig Clone()
+        {
+            return new ServiceConfig
+            {
+                TargetServiceName = TargetServiceName,
+                DisplayName = DisplayName,
+                CheckType = CheckType,
+                TcpHost = TcpHost,
+                TcpPort = TcpPort,
+                HttpUrl = HttpUrl,
+                CheckIntervalSeconds = CheckIntervalSeconds,
+                ResponseTimeoutSeconds = ResponseTimeoutSeconds,
+                AutoRestart = AutoRestart,
+                MaxRestartAttempts = MaxRestartAttempts,
+                RestartCooldownMinutes = RestartCooldownMinutes,
+                MonitoringEnabled = MonitoringEnabled
+            };
+        }
+
+        private static int Clamp(int value, int min, int max, int fallback)
+        {
+            if (value <= 0)
+                return fallback;
+            if (value < min)
+                return min;
+            if (value > max)
+                return max;
+            return value;
+        }
+    }
+
+    /// <summary>
+    /// Root configuration: global boot delay + list of monitored services.
+    /// Stored as JSON in %ProgramData%\WatchDogs\config.json.
+    /// Legacy single-service files are migrated on load.
+    /// </summary>
+    [DataContract]
+    public sealed class AppConfig
+    {
+        /// <summary>Delay after system reboot / engine start before monitoring begins, minutes.</summary>
+        [DataMember(Name = "bootDelayMinutes")]
+        public int BootDelayMinutes { get; set; }
+
+        [DataMember(Name = "services")]
+        public List<ServiceConfig> Services { get; set; }
+
+        // ----- legacy single-service fields (migration only) -----
+        [DataMember(Name = "targetServiceName")]
+        public string LegacyTargetServiceName { get; set; }
+
+        [DataMember(Name = "checkType")]
+        public HealthCheckType LegacyCheckType { get; set; }
+
+        [DataMember(Name = "tcpHost")]
+        public string LegacyTcpHost { get; set; }
+
+        [DataMember(Name = "tcpPort")]
+        public int LegacyTcpPort { get; set; }
+
+        [DataMember(Name = "httpUrl")]
+        public string LegacyHttpUrl { get; set; }
+
+        [DataMember(Name = "checkIntervalSeconds")]
+        public int LegacyCheckIntervalSeconds { get; set; }
+
+        [DataMember(Name = "responseTimeoutSeconds")]
+        public int LegacyResponseTimeoutSeconds { get; set; }
+
+        [DataMember(Name = "autoRestart")]
+        public bool LegacyAutoRestart { get; set; }
+
+        [DataMember(Name = "maxRestartAttempts")]
+        public int LegacyMaxRestartAttempts { get; set; }
+
+        [DataMember(Name = "restartCooldownMinutes")]
+        public int LegacyRestartCooldownMinutes { get; set; }
+
+        [DataMember(Name = "monitoringEnabled")]
+        public bool LegacyMonitoringEnabled { get; set; }
+
+        public static AppConfig CreateDefault()
+        {
+            return new AppConfig
+            {
+                BootDelayMinutes = 5,
+                Services = new List<ServiceConfig> { ServiceConfig.CreateDefault("1CV8S") }
+            };
+        }
+
+        public void Normalize()
+        {
+            BootDelayMinutes = Clamp(BootDelayMinutes, 0, 1440, 5);
+
+            if (Services == null)
+                Services = new List<ServiceConfig>();
+
+            // Migrate legacy single-service config
+            if (Services.Count == 0 && !string.IsNullOrWhiteSpace(LegacyTargetServiceName))
+            {
+                var s = ServiceConfig.CreateDefault(LegacyTargetServiceName);
+                s.CheckType = LegacyCheckType;
+                s.TcpHost = LegacyTcpHost;
+                s.TcpPort = LegacyTcpPort;
+                s.HttpUrl = LegacyHttpUrl;
+                s.CheckIntervalSeconds = LegacyCheckIntervalSeconds;
+                s.ResponseTimeoutSeconds = LegacyResponseTimeoutSeconds;
+                s.AutoRestart = LegacyAutoRestart;
+                s.MaxRestartAttempts = LegacyMaxRestartAttempts;
+                s.RestartCooldownMinutes = LegacyRestartCooldownMinutes;
+                s.MonitoringEnabled = LegacyMonitoringEnabled;
+                Services.Add(s);
+            }
+
+            if (Services.Count == 0)
+                Services.Add(ServiceConfig.CreateDefault());
+
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var cleaned = new List<ServiceConfig>();
+            foreach (var s in Services)
+            {
+                if (s == null)
+                    continue;
+                s.Normalize();
+                if (string.IsNullOrWhiteSpace(s.TargetServiceName))
+                    continue;
+                if (!seen.Add(s.TargetServiceName))
+                    continue;
+                cleaned.Add(s);
+            }
+
+            if (cleaned.Count == 0)
+                cleaned.Add(ServiceConfig.CreateDefault());
+
+            Services = cleaned;
         }
 
         private static int Clamp(int value, int min, int max, int fallback)

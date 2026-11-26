@@ -30,7 +30,7 @@ namespace WatchDogs.Core
             return client;
         }
 
-        public static HealthCheckResult Check(AppConfig config)
+        public static HealthCheckResult Check(ServiceConfig config)
         {
             if (config == null)
                 return new HealthCheckResult { IsHealthy = false, Message = "Конфигурация не задана" };
@@ -100,7 +100,7 @@ namespace WatchDogs.Core
         /// Restart the target service: Stop (if needed) then Start.
         /// Returns true when the service ends up Running.
         /// </summary>
-        public static bool TryRestart(AppConfig config, out string message)
+        public static bool TryRestart(ServiceConfig config, out string message)
         {
             message = null;
             if (config == null || string.IsNullOrWhiteSpace(config.TargetServiceName))
@@ -204,7 +204,7 @@ namespace WatchDogs.Core
             }
         }
 
-        private static HealthCheckResult CheckTcp(AppConfig config)
+        private static HealthCheckResult CheckTcp(ServiceConfig config)
         {
             var timeoutMs = Math.Max(1, config.ResponseTimeoutSeconds) * 1000;
             try
@@ -270,7 +270,7 @@ namespace WatchDogs.Core
             }
         }
 
-        private static HealthCheckResult CheckHttp(AppConfig config)
+        private static HealthCheckResult CheckHttp(ServiceConfig config)
         {
             var timeout = TimeSpan.FromSeconds(Math.Max(1, config.ResponseTimeoutSeconds));
             try

@@ -26,6 +26,8 @@ OutputBaseFilename=WatchDogs-Setup-{#MyAppVersion}
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
+SetupIconFile=..\assets\watchdogs-icon.ico
+UninstallDisplayIcon={app}\WatchDogs.exe
 UninstallDisplayName={#MyAppName}
 CloseApplications=yes
 

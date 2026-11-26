@@ -15,7 +15,12 @@
     <Product>Watch Dogs</Product>
     <Copyright>© csl.by · +375 29 337-14-12</Copyright>
     <Version>1.0.0</Version>
+    <ApplicationIcon>..\..\assets\watchdogs-icon.ico</ApplicationIcon>
   </PropertyGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\assets\watchdogs-icon.png" LogicalName="WatchDogs.Gui.watchdogs-icon.png" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\WatchDogs.Core\WatchDogs.Core.csproj" />

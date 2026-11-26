@@ -1,14 +1,19 @@
 {
-  "targetServiceName": "1CV8S",
-  "checkType": 0,
-  "tcpHost": "localhost",
-  "tcpPort": 1541,
-  "httpUrl": "http://localhost/health",
-  "checkIntervalSeconds": 30,
   "bootDelayMinutes": 5,
-  "responseTimeoutSeconds": 10,
-  "autoRestart": true,
-  "maxRestartAttempts": 5,
-  "restartCooldownMinutes": 5,
-  "monitoringEnabled": true
+  "services": [
+    {
+      "targetServiceName": "1CV8S",
+      "displayName": "",
+      "checkType": 0,
+      "tcpHost": "localhost",
+      "tcpPort": 1541,
+      "httpUrl": "http://localhost/health",
+      "checkIntervalSeconds": 30,
+      "responseTimeoutSeconds": 10,
+      "autoRestart": true,
+      "maxRestartAttempts": 5,
+      "restartCooldownMinutes": 5,
+      "monitoringEnabled": true
+    }
+  ]
 }
