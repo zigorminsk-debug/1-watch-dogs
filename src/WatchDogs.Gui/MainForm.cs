@@ -11,38 +11,38 @@ namespace WatchDogs.Gui
     public sealed class MainForm : Form
     {
         // --- status controls ---
-        private readonly Label _lblMonitorService;
-        private readonly Label _lblTargetService;
-        private readonly Label _lblState;
-        private readonly Label _lblHealthy;
-        private readonly Label _lblMessage;
-        private readonly Label _lblCounters;
-        private readonly Label _lblLastCheck;
-        private readonly Label _lblMonitorHint;
+        private Label _lblMonitorService;
+        private Label _lblTargetService;
+        private Label _lblState;
+        private Label _lblHealthy;
+        private Label _lblMessage;
+        private Label _lblCounters;
+        private Label _lblLastCheck;
+        private Label _lblMonitorHint;
 
         // --- settings controls ---
-        private readonly ComboBox _cbTargetService;
-        private readonly ComboBox _cbCheckType;
-        private readonly TextBox _txtTcpHost;
-        private readonly NumericUpDown _numTcpPort;
-        private readonly TextBox _txtHttpUrl;
-        private readonly NumericUpDown _numInterval;
-        private readonly NumericUpDown _numBootDelay;
-        private readonly NumericUpDown _numTimeout;
-        private readonly CheckBox _chkAutoRestart;
-        private readonly NumericUpDown _numMaxRestarts;
-        private readonly NumericUpDown _numCooldown;
-        private readonly CheckBox _chkEnabled;
-        private readonly Button _btnSave;
-        private readonly Button _btnRestart1C;
+        private ComboBox _cbTargetService;
+        private ComboBox _cbCheckType;
+        private TextBox _txtTcpHost;
+        private NumericUpDown _numTcpPort;
+        private TextBox _txtHttpUrl;
+        private NumericUpDown _numInterval;
+        private NumericUpDown _numBootDelay;
+        private NumericUpDown _numTimeout;
+        private CheckBox _chkAutoRestart;
+        private NumericUpDown _numMaxRestarts;
+        private NumericUpDown _numCooldown;
+        private CheckBox _chkEnabled;
+        private Button _btnSave;
+        private Button _btnRestart1C;
 
         // --- log ---
-        private readonly TextBox _txtLog;
+        private TextBox _txtLog;
 
         // --- common ---
-        private readonly Timer _refreshTimer;
-        private readonly StatusStrip _statusStrip;
-        private readonly ToolStripStatusLabel _statusLabel;
+        private Timer _refreshTimer;
+        private StatusStrip _statusStrip;
+        private ToolStripStatusLabel _statusLabel;
 
         public MainForm()
         {
