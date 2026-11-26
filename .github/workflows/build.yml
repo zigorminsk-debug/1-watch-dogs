@@ -53,8 +53,10 @@ jobs:
           $iscc = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
           if (-not $iscc) { throw "ISCC.exe not found" }
           Write-Host "Using $iscc"
-          & $iscc installer\WatchDogs.iss
-          if ($LASTEXITCODE -ne 0) { throw "ISCC failed with exit code $LASTEXITCODE" }
+          $p = Start-Process -FilePath $iscc -ArgumentList 'installer\WatchDogs.iss' -NoNewWindow -Wait -PassThru
+          Write-Host "ISCC exit code: $($p.ExitCode)"
+          if ($p.ExitCode -ne 0) { throw "ISCC failed with exit code $($p.ExitCode)" }
+          Get-ChildItem dist | Format-Table Name, Length
 
       - name: Collect artifacts
         shell: pwsh
