@@ -317,9 +317,14 @@ namespace WatchDogs.Gui
                 {
                     if (s == null)
                         return;
-                    using (var icon = new Bitmap(s))
-                    using (var tile = new Bitmap(480, 360, PixelFormat.Format32bppArgb))
+                    // Own the tile for the form lifetime — do NOT dispose it in `using`
+                    // (that caused ArgumentException in ControlPaint.IsImageTransparent).
+                    Image icon = null;
+                    Bitmap tile = null;
+                    try
                     {
+                        icon = new Bitmap(s);
+                        tile = new Bitmap(480, 360, PixelFormat.Format32bppArgb);
                         using (var g = Graphics.FromImage(tile))
                         {
                             g.Clear(Color.FromArgb(245, 247, 250));
@@ -335,6 +340,12 @@ namespace WatchDogs.Gui
                         }
                         BackgroundImage = tile;
                         BackgroundImageLayout = ImageLayout.Tile;
+                        tile = null; // ownership transferred to the form
+                    }
+                    finally
+                    {
+                        if (tile != null) tile.Dispose();
+                        if (icon != null) icon.Dispose();
                     }
                 }
             }
