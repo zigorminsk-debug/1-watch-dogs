@@ -216,13 +216,13 @@ namespace WatchDogs.Core
 
         public MonitorService()
         {
+            // DisplayName / Description are set at install time via sc.exe
+            // (ServiceInstallerHelper.Install) — ServiceBase exposes only ServiceName here.
             ServiceName = Paths.MonitoringServiceName;
-            DisplayName = Paths.MonitoringServiceDisplayName;
             CanStop = true;
             CanPauseAndContinue = false;
             CanShutdown = true;
             AutoLog = true;
-            Description = "Мониторинг состояния службы 1С-сервера и автоматический перезапуск при отказе (Watch Dogs).";
         }
 
         protected override void OnStart(string[] args)

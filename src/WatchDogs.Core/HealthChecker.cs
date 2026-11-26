@@ -148,7 +148,7 @@ namespace WatchDogs.Core
                 Log.Error(message, ex);
                 return false;
             }
-            catch (TimeoutException ex)
+            catch (System.TimeoutException ex)
             {
                 message = "Таймаут ожидания состояния службы: " + ex.Message;
                 Log.Error(message, ex);
