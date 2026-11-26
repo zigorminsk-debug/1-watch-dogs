@@ -25,7 +25,7 @@ UninstallDisplayName={#MyAppName}
 VersionInfoVersion={#MyAppVersion}
 VersionInfoProductVersion={#MyAppVersion}
 VersionInfoProductName={#MyAppName}
-VersionInfoCompanyName={#MyAppPublisher}
+VersionInfoCompany={#MyAppPublisher}
 VersionInfoFileDescription=Watch Dogs Setup
 CloseApplications=yes
 
