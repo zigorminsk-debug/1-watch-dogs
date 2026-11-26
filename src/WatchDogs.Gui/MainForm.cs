@@ -41,7 +41,6 @@ namespace WatchDogs.Gui
         private Button _btnDeleteSvc;
         private Button _btnAddSvc;
         private Panel _detailPanel;
-        private bool _loadingUi;
 
         // --- log ---
         private TextBox _txtLog;
@@ -965,28 +964,20 @@ namespace WatchDogs.Gui
             if (svc == null)
                 return;
 
-            // Always fill the detail form from the model (even if a load is in
-            // progress) — otherwise the form stays empty and "Save" wipes names.
-            _loadingUi = true;
-            try
-            {
-                _txtDisplayName.Text = svc.DisplayName ?? "";
-                _cbTargetService.Text = svc.TargetServiceName ?? "";
-                _cbCheckType.SelectedIndex = Math.Max(0, Math.Min(2, (int)svc.CheckType));
-                _txtTcpHost.Text = svc.TcpHost ?? "localhost";
-                _numTcpPort.Value = Clamp(svc.TcpPort, 1, 65535);
-                _txtHttpUrl.Text = svc.HttpUrl ?? "";
-                _numInterval.Value = Clamp(svc.CheckIntervalSeconds, 5, 86400);
-                _numTimeout.Value = Clamp(svc.ResponseTimeoutSeconds, 1, 300);
-                _chkAutoRestart.Checked = svc.AutoRestart;
-                _numMaxRestarts.Value = Clamp(svc.MaxRestartAttempts, 1, 100);
-                _numCooldown.Value = Clamp(svc.RestartCooldownMinutes, 0, 1440);
-                _chkSvcEnabled.Checked = svc.MonitoringEnabled;
-            }
-            finally
-            {
-                _loadingUi = false;
-            }
+            // Always fill the detail form from the model — otherwise the form
+            // stays empty and "Save" wipes Service Name.
+            _txtDisplayName.Text = svc.DisplayName ?? "";
+            _cbTargetService.Text = svc.TargetServiceName ?? "";
+            _cbCheckType.SelectedIndex = Math.Max(0, Math.Min(2, (int)svc.CheckType));
+            _txtTcpHost.Text = svc.TcpHost ?? "localhost";
+            _numTcpPort.Value = Clamp(svc.TcpPort, 1, 65535);
+            _txtHttpUrl.Text = svc.HttpUrl ?? "";
+            _numInterval.Value = Clamp(svc.CheckIntervalSeconds, 5, 86400);
+            _numTimeout.Value = Clamp(svc.ResponseTimeoutSeconds, 1, 300);
+            _chkAutoRestart.Checked = svc.AutoRestart;
+            _numMaxRestarts.Value = Clamp(svc.MaxRestartAttempts, 1, 100);
+            _numCooldown.Value = Clamp(svc.RestartCooldownMinutes, 0, 1440);
+            _chkSvcEnabled.Checked = svc.MonitoringEnabled;
         }
 
         private void SetDetailEnabled(bool enabled)
