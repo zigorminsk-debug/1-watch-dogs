@@ -1,8 +1,4 @@
-﻿; ============================================================
-; Watch Dogs — Inno Setup script (UTF-8 with BOM)
-; Builds setup.exe: GUI + monitoring Windows service + full uninstall.
-; ============================================================
-
+﻿; Watch Dogs - Inno Setup script
 #define MyAppName "Watch Dogs"
 #define MyAppVersion "1.0.0"
 #define MyAppPublisher "Watch Dogs"
@@ -25,8 +21,6 @@ OutputBaseFilename=WatchDogs-Setup-{#MyAppVersion}
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
-ArchitecturesAllowed=x64compatible
-ArchitecturesInstallIn64BitMode=x64compatible
 UninstallDisplayName={#MyAppName}
 VersionInfoVersion={#MyAppVersion}
 VersionInfoProductVersion={#MyAppVersion}
@@ -34,26 +28,19 @@ VersionInfoProductName={#MyAppName}
 VersionInfoCompanyText={#MyAppPublisher}
 VersionInfoFileDescription=Watch Dogs Setup
 CloseApplications=yes
-RestartApplications=no
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
-Name: "russian"; MessagesFile: "compiler:Languages\Russian.isl"
 
 [Tasks]
-Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
-Name: "installservice"; Description: "Install and start monitoring service {#MyServiceName} (auto start with Windows)"; GroupDescription: "Monitoring service:"; Flags: checkedonce
+Name: "desktopicon"; Description: "Create a &desktop icon"; GroupDescription: "Additional icons:"; Flags: unchecked
+Name: "installservice"; Description: "Install and start monitoring service {#MyServiceName}"; GroupDescription: "Monitoring service:"; Flags: checkedonce
 
 [Files]
-; GUI
 Source: "..\src\WatchDogs.Gui\bin\Release\net48\WatchDogs.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\src\WatchDogs.Gui\bin\Release\net48\WatchDogs.exe.config"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
-; Service + shared core
 Source: "..\src\WatchDogs.Service\bin\Release\net48\WatchDogs.Service.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\src\WatchDogs.Service\bin\Release\net48\WatchDogs.Core.dll"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\src\WatchDogs.Service\bin\Release\net48\WatchDogs.Service.exe.config"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
-; Default config (created on first run if missing)
-Source: "..\installer\default-config.json"; DestDir: "{commonappdata}\WatchDogs"; DestName: "config.json"; Flags: onlyifdoesntexist ignoreversion
+Source: "default-config.json"; DestDir: "{commonappdata}\WatchDogs"; DestName: "config.json"; Flags: onlyifdoesntexist ignoreversion
 
 [Icons]
 Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
@@ -62,7 +49,7 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: de
 [Run]
 Filename: "{app}\{#MyServiceExe}"; Parameters: "--install"; StatusMsg: "Installing monitoring service..."; Tasks: installservice; Flags: runhidden waituntilterminated
 Filename: "{app}\{#MyServiceExe}"; Parameters: "--start"; StatusMsg: "Starting monitoring service..."; Tasks: installservice; Flags: runhidden waituntilterminated
-Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#MyAppName}}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\{#MyAppExeName}"; Description: "Launch {#MyAppName}"; Flags: nowait postinstall skipifsilent
 
 [UninstallRun]
 Filename: "{app}\{#MyServiceExe}"; Parameters: "--stop"; RunOnceId: "StopMonitor"; Flags: runhidden waituntilterminated skipifdoesntexist

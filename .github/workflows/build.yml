@@ -53,27 +53,24 @@ jobs:
           $iscc = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
           if (-not $iscc) { throw "ISCC.exe not found" }
           Write-Host "Using $iscc"
-          Write-Host "Repo layout:"
-          Get-ChildItem -Recurse -File installer, src -ErrorAction SilentlyContinue |
-            Select-Object -First 50 FullName | Format-Table -AutoSize
-          Write-Host "--- ISCC output ---"
-          $output = & $iscc /Qp "installer\WatchDogs.iss" 2>&1 | ForEach-Object { "$_" }
-          $output | Write-Host
+          Write-Host "Script file:"
+          Get-Item installer\WatchDogs.iss | Format-List FullName, Length
+          Write-Host "--- ISCC output begin ---"
+          $output = & $iscc "installer\WatchDogs.iss" 2>&1 | ForEach-Object { "$_" }
+          $output | ForEach-Object { Write-Host $_ }
           $code = $LASTEXITCODE
           Write-Host "--- ISCC exit code: $code ---"
+          $summary = @"
+          ## ISCC output (exit $code)
+          ``````
+          $($output -join "`n")
+          ``````
+          "@
+          Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value $summary
           if ($code -ne 0) {
-            $output | Out-File -FilePath iscc-error.log -Encoding utf8
-            throw "ISCC failed with exit code $code"
+            throw "ISCC failed with exit code $code : $($output -join ' | ')"
           }
           Get-ChildItem dist -ErrorAction SilentlyContinue | Format-Table Name, Length
-
-      - name: Upload ISCC log on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: iscc-debug-log
-          path: iscc-error.log
-          if-no-files-found: ignore
 
       - name: Collect artifacts
         shell: pwsh
