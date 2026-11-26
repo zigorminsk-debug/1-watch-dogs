@@ -85,7 +85,7 @@ namespace WatchDogs.Gui
             _statusLabel.TextAlign = ContentAlignment.MiddleLeft;
             var devLabel = new ToolStripStatusLabel("csl.by · +375 29 337-14-12");
             devLabel.IsLink = true;
-            devLabel.LinkBehavior = LinkBehavior.SystemUnderline;
+            devLabel.LinkBehavior = LinkBehavior.HoverUnderline;
             devLabel.Click += (s, e) =>
             {
                 try { Process.Start("http://csl.by"); } catch { /* ignore */ }
