@@ -50,13 +50,13 @@ Source: "..\src\WatchDogs.Service\bin\Release\net48\WatchDogs.Core.dll"; DestDir
 Source: "default-config.json"; DestDir: "{commonappdata}\WatchDogs"; DestName: "config.json"; Flags: onlyifdoesntexist ignoreversion
 
 [Icons]
-Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
-Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
+Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"
+Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; Tasks: desktopicon
 
 [Run]
 Filename: "{app}\{#MyServiceExe}"; Parameters: "--install"; StatusMsg: "Installing monitoring service..."; Tasks: installservice; Flags: runhidden waituntilterminated
 Filename: "{app}\{#MyServiceExe}"; Parameters: "--start"; StatusMsg: "Starting monitoring service..."; Tasks: installservice; Flags: runhidden waituntilterminated
-Filename: "{app}\{#MyAppExeName}"; Description: "Launch {#MyAppName}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; Description: "Launch {#MyAppName}"; Flags: nowait postinstall skipifsilent
 
 [UninstallRun]
 Filename: "{app}\{#MyServiceExe}"; Parameters: "--stop"; RunOnceId: "StopMonitor"; Flags: runhidden waituntilterminated skipifdoesntexist
