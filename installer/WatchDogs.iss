@@ -22,11 +22,6 @@ Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
 UninstallDisplayName={#MyAppName}
-VersionInfoVersion={#MyAppVersion}
-VersionInfoProductVersion={#MyAppVersion}
-VersionInfoProductName={#MyAppName}
-VersionInfoCompany={#MyAppPublisher}
-VersionInfoFileDescription=Watch Dogs Setup
 CloseApplications=yes
 
 [Languages]
