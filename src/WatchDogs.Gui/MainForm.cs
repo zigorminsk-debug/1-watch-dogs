@@ -409,8 +409,8 @@ namespace WatchDogs.Gui
             outer.Controls.Add(globalPanel, 0, 1);
 
             // ---- middle: split list | detail ----
-            // Do NOT set Panel1MinSize/Panel2MinSize in the initializer:
-            // SplitContainer has no size yet and throws InvalidOperationException.
+            // Never set Panel1MinSize/Panel2MinSize here: SplitContainer is not
+            // sized yet and throws InvalidOperationException (startup crash).
             var split = new SplitContainer
             {
                 Dock = DockStyle.Fill,
@@ -418,23 +418,6 @@ namespace WatchDogs.Gui
                 SplitterDistance = 300,
                 FixedPanel = FixedPanel.Panel1,
                 Margin = new Padding(0)
-            };
-            split.Load += (s, e) =>
-            {
-                try
-                {
-                    // Apply min sizes only after the control has a real width.
-                    var w = split.Width;
-                    if (w > 700)
-                    {
-                        split.Panel1MinSize = 240;
-                        split.Panel2MinSize = 320;
-                    }
-                }
-                catch
-                {
-                    // cosmetic only — never block startup
-                }
             };
 
             // left: service list
