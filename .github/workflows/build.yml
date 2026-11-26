@@ -60,17 +60,26 @@ jobs:
           $output | ForEach-Object { Write-Host $_ }
           $code = $LASTEXITCODE
           Write-Host "--- ISCC exit code: $code ---"
-          $summary = @"
-          ## ISCC output (exit $code)
-          ``````
-          $($output -join "`n")
-          ``````
-          "@
+          $joined = ($output -join "`n")
+          $summary = "## ISCC output (exit $code)`n``````n$joined`n`````n"
           Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value $summary
           if ($code -ne 0) {
-            throw "ISCC failed with exit code $code : $($output -join ' | ')"
+            # GitHub Actions annotation — shows exact ISCC error on the run page
+            $oneLine = ($output -join ' || ')
+            Write-Host "::error title=ISCC failed::exit=$code :: $oneLine"
+            # Persist for artifact
+            Set-Content -Path iscc-error.log -Value $joined -Encoding utf8
+            exit 1
           }
           Get-ChildItem dist -ErrorAction SilentlyContinue | Format-Table Name, Length
+
+      - name: Upload ISCC error log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: iscc-error-log
+          path: iscc-error.log
+          if-no-files-found: ignore
 
       - name: Collect artifacts
         shell: pwsh
