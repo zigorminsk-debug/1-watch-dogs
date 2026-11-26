@@ -74,7 +74,17 @@ namespace WatchDogs.Gui
 
             _statusStrip = new StatusStrip();
             _statusLabel = new ToolStripStatusLabel("Готово");
+            _statusLabel.Spring = true;
+            _statusLabel.TextAlign = ContentAlignment.MiddleLeft;
+            var devLabel = new ToolStripStatusLabel("csl.by · +375 29 337-14-12");
+            devLabel.IsLink = true;
+            devLabel.LinkBehavior = LinkBehavior.SystemUnderline;
+            devLabel.Click += (s, e) =>
+            {
+                try { Process.Start("http://csl.by"); } catch { /* ignore */ }
+            };
             _statusStrip.Items.Add(_statusLabel);
+            _statusStrip.Items.Add(devLabel);
 
             Controls.Add(tabs);
             Controls.Add(_statusStrip);
@@ -120,6 +130,16 @@ namespace WatchDogs.Gui
             root.Controls.Add(title, 0, 0);
             root.SetColumnSpan(title, 2);
 
+            var devLine = new Label
+            {
+                Text = "Разработчик: csl.by  ·  +375 29 337-14-12",
+                AutoSize = true,
+                ForeColor = Color.SteelBlue,
+                Margin = new Padding(0, 0, 0, 8)
+            };
+            root.Controls.Add(devLine, 0, 1);
+            root.SetColumnSpan(devLine, 2);
+
             _lblMonitorHint = new Label
             {
                 AutoSize = false,
@@ -129,8 +149,8 @@ namespace WatchDogs.Gui
                 Font = new Font(Font, FontStyle.Bold),
                 Margin = new Padding(0, 0, 0, 8)
             };
-            root.Controls.Add(_lblMonitorHint, 0, 1);
-            root.SetColumnSpan(_lblMonitorHint, 2);
+            root.Controls.Add(_lblMonitorHint, 0, 2);
+            root.SetColumnSpan(_lblMonitorHint, 2); // hint
 
             _lblMonitorService = MakeInfoLabel();
             _lblTargetService = MakeInfoLabel();
@@ -141,7 +161,7 @@ namespace WatchDogs.Gui
             _lblLastCheck = MakeInfoLabel();
             _lblCounters = MakeInfoLabel();
 
-            var row = 2;
+            var row = 3;
             AddStatusRow(root, ref row, "Служба мониторинга:", _lblMonitorService);
             AddStatusRow(root, ref row, "Служба 1С:", _lblTargetService);
             AddStatusRow(root, ref row, "Состояние движка:", _lblState);

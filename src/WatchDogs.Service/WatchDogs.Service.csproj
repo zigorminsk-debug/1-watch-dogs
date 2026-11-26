@@ -9,6 +9,8 @@
     <AssemblyName>WatchDogs.Service</AssemblyName>
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+      <Company>csl.by</Company>
+    <Copyright>© csl.by · +375 29 337-14-12</Copyright>
   </PropertyGroup>
 
   <ItemGroup>

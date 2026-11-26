@@ -95,3 +95,8 @@ msbuild WatchDogs.sln /p:Configuration=Release
 - Windows 10/11 или Windows Server 2016+
 - .NET Framework 4.8 (предустановлен на актуальных системах)
 - Права администратора для установки/удаления службы
+
+## Разработчик
+
+**csl.by** · +375 29 337-14-12  
+http://csl.by

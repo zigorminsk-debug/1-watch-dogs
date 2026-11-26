@@ -1,7 +1,9 @@
 ﻿; Watch Dogs - Inno Setup script
 #define MyAppName "Watch Dogs"
 #define MyAppVersion "1.0.0"
-#define MyAppPublisher "Watch Dogs"
+#define MyAppPublisher "csl.by"
+#define MyAppPhone "+375 29 337-14-12"
+#define MyAppURL "http://csl.by"
 #define MyAppExeName "WatchDogs.exe"
 #define MyServiceName "WatchDogsMonitor"
 #define MyServiceExe "WatchDogs.Service.exe"
@@ -12,6 +14,9 @@ AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppVerName={#MyAppName} {#MyAppVersion}
 AppPublisher={#MyAppPublisher}
+AppPublisherURL={#MyAppURL}
+AppSupportURL={#MyAppURL}
+AppUpdatesURL={#MyAppURL}
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
@@ -23,6 +28,11 @@ SolidCompression=yes
 WizardStyle=modern
 UninstallDisplayName={#MyAppName}
 CloseApplications=yes
+
+[Messages]
+FinishedLabel=Setup has finished installing Watch Dogs. Developer: csl.by · +375 29 337-14-12
+FinishedLabelNoIcons=Setup has finished installing Watch Dogs. Developer: csl.by · +375 29 337-14-12
+UninstallStatusLabel=Watch Dogs is being uninstalled. csl.by · +375 29 337-14-12
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
