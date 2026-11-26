@@ -10,6 +10,7 @@ publish/
 
 ## Installer output
 dist/
+artifacts/
 *.exe
 !installer/**/*.exe
 

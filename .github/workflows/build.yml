@@ -96,6 +96,25 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+      # Commit installer into the repo so it can be fetched via git
+      # (Actions artifact storage may be unreachable from some sandboxes).
+      - name: Commit setup.exe into repository
+        if: github.event_name != 'pull_request'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p releases
+          cp artifacts/*.exe releases/
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add releases/
+          if git diff --cached --quiet; then
+            echo "releases/ unchanged — skip commit"
+          else
+            git commit -m "chore: publish WatchDogs-Setup [skip ci]"
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi
+
       - name: Create GitHub Release (tags only)
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
