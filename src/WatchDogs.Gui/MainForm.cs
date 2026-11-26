@@ -308,12 +308,12 @@ namespace WatchDogs.Gui
                 btnPanel.Controls.Add(b);
             }
 
-            AddBtn("Обновить", (s, e) => RefreshStatus());
-            AddBtn("Установить службу", async (s, e) => await InstallMonitoringServiceAsync());
-            AddBtn("Запустить мониторинг", async (s, e) => await ControlMonitoringServiceAsync(true));
-            AddBtn("Остановить мониторинг", async (s, e) => await ControlMonitoringServiceAsync(false));
-            AddBtn("Удалить службу", async (s, e) => await UninstallMonitoringServiceAsync());
-            AddBtn("Открыть логи", (s, e) => OpenLogFolder());
+            AddBtn("🔄 Обновить", (s, e) => RefreshStatus());
+            AddBtn("⬇ Установить службу мониторинга", async (s, e) => await InstallMonitoringServiceAsync());
+            AddBtn("▶ Запустить", async (s, e) => await ControlMonitoringServiceAsync(true));
+            AddBtn("⏸ Остановить", async (s, e) => await ControlMonitoringServiceAsync(false));
+            AddBtn("🗑 Удалить службу мониторинга", async (s, e) => await UninstallMonitoringServiceAsync());
+            AddBtn("📁 Открыть логи", (s, e) => OpenLogFolder());
 
             tab.BackColor = Color.FromArgb(252, 252, 254);
             tab.Controls.Add(root);
@@ -373,8 +373,9 @@ namespace WatchDogs.Gui
 
             var hint = new Label
             {
-                Text = "Каждая служба 1С — отдельный профиль контроля. Сохраните — служба мониторинга " +
-                       "перечитает конфигурацию при следующей проверке. Задержка после загрузки — общая для всех.",
+                Text = "💡 Каждая служба 1С — отдельный профиль контроля. Нажмите «Сохранить настройки», " +
+                       "и служба мониторинга перечитает конфигурацию при следующей проверке. " +
+                       "Задержка после загрузки — общая для всех. ПКМ по списку — удалить/отключить.",
                 AutoSize = true,
                 MaximumSize = new Size(980, 0),
                 ForeColor = Color.DimGray,
@@ -413,7 +414,9 @@ namespace WatchDogs.Gui
             {
                 Dock = DockStyle.Fill,
                 Orientation = Orientation.Vertical,
-                SplitterDistance = 280,
+                SplitterDistance = 300,
+                Panel1MinSize = 260,
+                Panel2MinSize = 360,
                 FixedPanel = FixedPanel.Panel1,
                 Margin = new Padding(0)
             };
@@ -431,22 +434,65 @@ namespace WatchDogs.Gui
             {
                 Dock = DockStyle.Fill,
                 DisplayMember = "Title",
-                IntegralHeight = false
+                IntegralHeight = false,
+                BorderStyle = BorderStyle.FixedSingle
             };
             _listServices.SelectedIndexChanged += (s, e) => ShowSelectedService();
 
-            var listBtns = new FlowLayoutPanel
+            // right-click: delete / disable selected service
+            var listMenu = new ContextMenuStrip();
+            var miDelete = new ToolStripMenuItem("🗑 Удалить из мониторинга");
+            miDelete.Click += (s, e) => DeleteSelectedService();
+            var miToggle = new ToolStripMenuItem("⏸ Отключить / включить");
+            miToggle.Click += (s, e) => ToggleSelectedService();
+            listMenu.Items.Add(miDelete);
+            listMenu.Items.Add(miToggle);
+            _listServices.ContextMenuStrip = listMenu;
+            _listServices.MouseDown += (s, e) =>
+            {
+                if (e.Button != MouseButtons.Right) return;
+                var idx = _listServices.IndexFromPoint(e.Location);
+                if (idx >= 0) _listServices.SelectedIndex = idx;
+            };
+
+            var listBtns = new TableLayoutPanel
             {
                 Dock = DockStyle.Bottom,
-                Height = 40,
-                FlowDirection = FlowDirection.LeftToRight
+                Height = 76,
+                ColumnCount = 2,
+                RowCount = 1,
+                Padding = new Padding(0, 6, 0, 0)
             };
-            _btnAddSvc = new Button { Text = "+ Добавить", AutoSize = true, Padding = new Padding(8, 2, 8, 2) };
+            listBtns.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 55));
+            listBtns.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 45));
+            listBtns.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+
+            _btnAddSvc = new Button
+            {
+                Text = "➕ Добавить",
+                Dock = DockStyle.Fill,
+                Height = 30,
+                Margin = new Padding(0, 0, 4, 0)
+            };
             _btnAddSvc.Click += (s, e) => AddService();
-            _btnDeleteSvc = new Button { Text = "Удалить", AutoSize = true, Padding = new Padding(8, 2, 8, 2) };
+
+            _btnDeleteSvc = new Button
+            {
+                Text = "🗑 Удалить",
+                Dock = DockStyle.Fill,
+                Height = 30,
+                Margin = new Padding(4, 0, 0, 0),
+                ForeColor = Color.Firebrick
+            };
             _btnDeleteSvc.Click += (s, e) => DeleteSelectedService();
-            listBtns.Controls.Add(_btnAddSvc);
-            listBtns.Controls.Add(_btnDeleteSvc);
+
+            var listTip = new ToolTip { InitialDelay = 400, ShowAlways = true };
+            listTip.SetToolTip(_btnAddSvc, "Добавить новую службу 1С в список мониторинга");
+            listTip.SetToolTip(_btnDeleteSvc, "Убрать выбранную службу из мониторинга (Windows-служба не удаляется)");
+            listTip.SetToolTip(_listServices, "ЛКМ — выбрать · ПКМ — удалить или отключить");
+
+            listBtns.Controls.Add(_btnAddSvc, 0, 0);
+            listBtns.Controls.Add(_btnDeleteSvc, 1, 0);
 
             left.Controls.Add(_listServices);
             left.Controls.Add(listBtns);
@@ -474,10 +520,10 @@ namespace WatchDogs.Gui
                 FlowDirection = FlowDirection.LeftToRight
             };
 
-            _btnSave = MakeActionButton("Сохранить настройки", async (s, e) => await SaveSettingsAsync(), true);
-            var btnReload = MakeActionButton("Загрузить текущие", (s, e) => LoadConfigUi(), false);
-            var btnTest = MakeActionButton("Проверить выбранную", async (s, e) => await TestCheckAsync(), false);
-            var btnRestart = MakeActionButton("Перезапустить выбранную", async (s, e) => await RestartFromSettingsAsync(), false);
+            _btnSave = MakeActionButton("💾 Сохранить настройки", async (s, e) => await SaveSettingsAsync(), true);
+            var btnReload = MakeActionButton("🔄 Загрузить текущие", (s, e) => LoadConfigUi(), false);
+            var btnTest = MakeActionButton("🩺 Проверить выбранную", async (s, e) => await TestCheckAsync(), false);
+            var btnRestart = MakeActionButton("🔁 Перезапустить выбранную", async (s, e) => await RestartFromSettingsAsync(), false);
 
             btnPanel.Controls.Add(_btnSave);
             btnPanel.Controls.Add(btnReload);
@@ -720,6 +766,10 @@ namespace WatchDogs.Gui
                     }
                     else
                     {
+                        _gridStatus.Rows.Add(
+                            "—", "—", "—", "—",
+                            "Нет данных. Сохраните настройки и запустите мониторинг.",
+                            "0 / 0", "—");
                         _lblEngineState.Text = "нет данных";
                     }
                     return;
@@ -866,23 +916,20 @@ namespace WatchDogs.Gui
         {
             try
             {
-                _loadingUi = true;
                 _cfg = ConfigStore.LoadConfig();
                 if (_cfg.Services == null || _cfg.Services.Count == 0)
                     _cfg = AppConfig.CreateDefault();
+                _cfg.Normalize();
 
                 _numBootDelay.Value = Clamp(_cfg.BootDelayMinutes, 0, 1440);
                 RefreshServiceList(0);
+                ShowSelectedService();
                 SetStatus("Настройки загружены (" + _cfg.Services.Count + " служб)");
             }
             catch (Exception ex)
             {
                 MessageBox.Show(this, "Не удалось загрузить настройки:\n" + ex.Message,
                     "Watch Dogs", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            }
-            finally
-            {
-                _loadingUi = false;
             }
         }
 
@@ -914,11 +961,12 @@ namespace WatchDogs.Gui
         private void ShowSelectedService()
         {
             var svc = SelectedService;
-            var has = svc != null;
-            SetDetailEnabled(has);
-            if (!has || _loadingUi)
+            SetDetailEnabled(svc != null);
+            if (svc == null)
                 return;
 
+            // Always fill the detail form from the model (even if a load is in
+            // progress) — otherwise the form stays empty and "Save" wipes names.
             _loadingUi = true;
             try
             {
@@ -996,18 +1044,26 @@ namespace WatchDogs.Gui
         {
             var svc = SelectedService;
             if (svc == null)
+            {
+                SetStatus("Сначала выберите службу в списке слева");
                 return;
+            }
 
             if (_cfg.Services.Count <= 1)
             {
                 MessageBox.Show(this,
-                    "Нужно оставить хотя бы одну службу.\nМожно отключить её галочкой «Мониторинг…».",
+                    "Нужно оставить хотя бы одну службу.\n" +
+                    "Вместо удаления можно отключить её галочкой «Мониторинг этой службы включён» " +
+                    "или пунктом меню «Отключить / включить».",
                     "Watch Dogs", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
 
             var r = MessageBox.Show(this,
-                "Удалить из списка службу\n\"" + svc.Title + "\"?\n\nСама Windows-служба 1С не удаляется.",
+                "Убрать службу из мониторинга?\n\n" +
+                "  " + svc.Title + "\n  (" + (svc.TargetServiceName ?? "?") + ")\n\n" +
+                "Сама Windows-служба 1С НЕ будет удалена — только профиль контроля.\n" +
+                "Изменение применится после «Сохранить настройки».",
                 "Удаление из мониторинга",
                 MessageBoxButtons.YesNo, MessageBoxIcon.Question);
             if (r != DialogResult.Yes)
@@ -1016,6 +1072,20 @@ namespace WatchDogs.Gui
             var idx = _listServices.SelectedIndex;
             _cfg.Services.Remove(svc);
             RefreshServiceList(Math.Max(0, idx - 1));
+            SetStatus("Удалено: " + svc.Title + " — не забудьте «Сохранить настройки»");
+            Log.Info("GUI: удалён профиль мониторинга " + svc.Title);
+        }
+
+        private void ToggleSelectedService()
+        {
+            var svc = SelectedService;
+            if (svc == null)
+                return;
+            svc.MonitoringEnabled = !svc.MonitoringEnabled;
+            ShowSelectedService();
+            _listServices.Refresh();
+            SetStatus((svc.MonitoringEnabled ? "Включён" : "Отключён") +
+                      " мониторинг: " + svc.Title + " — не забудьте «Сохранить настройки»");
         }
 
         private void LoadServiceListCombo()
@@ -1049,13 +1119,20 @@ namespace WatchDogs.Gui
                     return;
                 }
 
-                foreach (var s in _cfg.Services)
+                for (int i = 0; i < _cfg.Services.Count; i++)
                 {
+                    var s = _cfg.Services[i];
                     if (string.IsNullOrWhiteSpace(s.TargetServiceName))
                     {
+                        _listServices.SelectedIndex = i;
+                        ShowSelectedService();
+                        _cbTargetService.Focus();
                         MessageBox.Show(this,
-                            "У службы «" + s.Title + "» не задан Service Name.",
-                            "Watch Dogs", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                            "У службы #" + (i + 1) + " («" + s.Title + "») не задан Service Name.\n\n" +
+                            "Выберите службу Windows в поле «Служба Windows (Name)» " +
+                            "или нажмите «Из списка…».",
+                            "Watch Dogs — не хватает данных",
+                            MessageBoxButtons.OK, MessageBoxIcon.Warning);
                         return;
                     }
                 }

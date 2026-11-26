@@ -105,9 +105,10 @@ namespace WatchDogs.Core
         {
             get
             {
+                var name = string.IsNullOrWhiteSpace(TargetServiceName) ? "Service Name не задан" : TargetServiceName;
                 if (!string.IsNullOrWhiteSpace(DisplayName))
-                    return DisplayName + "  (" + TargetServiceName + ")";
-                return TargetServiceName ?? "—";
+                    return DisplayName + "  (" + name + ")";
+                return name;
             }
         }
 

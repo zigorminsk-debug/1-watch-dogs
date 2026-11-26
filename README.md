@@ -96,6 +96,42 @@ msbuild WatchDogs.sln /p:Configuration=Release
 - .NET Framework 4.8 (предустановлен на актуальных системах)
 - Права администратора для установки/удаления службы
 
+## Работа с git
+
+Репозиторий: `zigorminsk-debug/1-watch-dogs`  
+Основная ветка: `main`. Фичи и фиксы — в своих ветках, merge через PR.
+
+```bash
+# клонирование
+git clone https://github.com/zigorminsk-debug/1-watch-dogs.git
+cd 1-watch-dogs
+
+# свежая основная ветка
+git checkout main
+git pull origin main
+
+# новая работа
+git checkout -b feature/short-name
+git add -A
+git commit -m "feat: краткое описание изменения"
+git push origin feature/short-name
+```
+
+**Что коммитить:** исходники (`src/`), `installer/`, `.github/`, `assets/`, `README.md`.  
+**Что не коммитить:** `bin/`, `obj/`, `*.user`, локальные логи — уже в `.gitignore`.  
+`releases/*.exe` обновляет CI после зелёной сборки (коммит с `[skip ci]`).
+
+Полезные команды:
+
+```bash
+git status                 # что изменилось
+git log --oneline -10      # последние коммиты
+git diff                   # дифф без индекса
+git pull origin <branch>   # забрать правки (в т.ч. свежий setup.exe)
+```
+
+Сборка `setup.exe` — только на **GitHub Actions** (Actions → Build setup.exe → Run workflow), не локально.
+
 ## Разработчик
 
 **csl.by** · +375 29 337-14-12  
