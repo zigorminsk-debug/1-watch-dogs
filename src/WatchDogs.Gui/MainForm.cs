@@ -13,6 +13,185 @@ using WatchDogs.Core;
 
 namespace WatchDogs.Gui
 {
+    /// <summary>Unified visual theme: one palette, one button style, one spacing.</summary>
+    internal static class Ui
+    {
+        public static readonly Color Bg = Color.FromArgb(245, 247, 250);
+        public static readonly Color Surface = Color.White;
+        public static readonly Color Border = Color.FromArgb(220, 226, 234);
+        public static readonly Color Text = Color.FromArgb(32, 40, 48);
+        public static readonly Color Muted = Color.FromArgb(100, 116, 139);
+        public static readonly Color Primary = Color.FromArgb(13, 71, 161);
+        public static readonly Color PrimaryHover = Color.FromArgb(21, 101, 192);
+        public static readonly Color Danger = Color.FromArgb(180, 35, 35);
+        public static readonly Color Ok = Color.FromArgb(22, 120, 60);
+        public static readonly Color WarnBg = Color.FromArgb(255, 244, 229);
+
+        public static readonly Font TitleFont = new Font("Segoe UI", 11F, FontStyle.Bold);
+        public static readonly Font SectionFont = new Font("Segoe UI", 9.5F, FontStyle.Bold);
+        public static readonly Font BodyFont = new Font("Segoe UI", 9F);
+        public static readonly Font MonoFont = new Font("Consolas", 9F);
+
+        public const int BtnHeight = 34;
+        public const int InputHeight = 30;
+
+        /// <summary>Primary or secondary button — always the same height and padding.</summary>
+        public static Button Btn(string text, EventHandler onClick, bool primary = false, bool danger = false)
+        {
+            var b = new Button
+            {
+                Text = text,
+                Height = BtnHeight,
+                AutoSize = false,
+                Width = Math.Max(120, TextRenderer.MeasureText(text, BodyFont).Width + 32),
+                FlatStyle = FlatStyle.Flat,
+                Font = BodyFont,
+                Margin = new Padding(0, 0, 8, 0),
+                Cursor = Cursors.Hand,
+                UseVisualStyleBackColor = false
+            };
+            if (danger)
+            {
+                b.BackColor = Color.FromArgb(252, 238, 238);
+                b.ForeColor = Danger;
+                b.FlatAppearance.BorderColor = Color.FromArgb(230, 180, 180);
+            }
+            else if (primary)
+            {
+                b.BackColor = Primary;
+                b.ForeColor = Color.White;
+                b.FlatAppearance.BorderColor = Primary;
+                b.Font = SectionFont;
+            }
+            else
+            {
+                b.BackColor = Surface;
+                b.ForeColor = Text;
+                b.FlatAppearance.BorderColor = Border;
+            }
+            b.FlatAppearance.MouseOverBackColor = danger
+                ? Color.FromArgb(255, 230, 230)
+                : (primary ? PrimaryHover : Color.FromArgb(238, 242, 247));
+            b.FlatAppearance.MouseDownBackColor = danger
+                ? Color.FromArgb(250, 215, 215)
+                : (primary ? Color.FromArgb(10, 55, 130) : Color.FromArgb(230, 236, 244));
+            if (onClick != null)
+                b.Click += onClick;
+            return b;
+        }
+
+        public static NumericUpDown Num(decimal min, decimal max, decimal val)
+        {
+            return new NumericUpDown
+            {
+                Minimum = min,
+                Maximum = max,
+                Value = val,
+                Height = InputHeight,
+                Width = 120,
+                Font = BodyFont,
+                Margin = new Padding(0, 4, 0, 4)
+            };
+        }
+
+        public static Label Section(string text)
+        {
+            return new Label
+            {
+                Text = text,
+                AutoSize = true,
+                Font = SectionFont,
+                ForeColor = Text,
+                Margin = new Padding(0, 0, 0, 6)
+            };
+        }
+
+        public static Label Hint(string text)
+        {
+            return new Label
+            {
+                Text = text,
+                AutoSize = true,
+                MaximumSize = new Size(980, 0),
+                Font = BodyFont,
+                ForeColor = Muted,
+                Margin = new Padding(0, 0, 0, 8)
+            };
+        }
+
+        public static Panel Card(Control content, DockStyle dock = DockStyle.Fill)
+        {
+            var p = new Panel
+            {
+                Dock = dock,
+                BackColor = Surface,
+                Padding = new Padding(12),
+                Margin = new Padding(0, 0, 0, 8)
+            };
+            p.Controls.Add(content);
+            return p;
+        }
+
+        public static FlowLayoutPanel Toolbar()
+        {
+            return new FlowLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                Height = 46,
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = false,
+                Padding = new Padding(0, 6, 0, 0),
+                BackColor = Bg
+            };
+        }
+
+        public static DataGridView Grid()
+        {
+            var g = new DataGridView
+            {
+                Dock = DockStyle.Fill,
+                ReadOnly = true,
+                AllowUserToAddRows = false,
+                AllowUserToDeleteRows = false,
+                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+                RowHeadersVisible = false,
+                BackgroundColor = Surface,
+                BorderStyle = BorderStyle.FixedSingle,
+                SelectionMode = DataGridViewSelectionMode.FullRowSelect,
+                MultiSelect = false,
+                EnableHeadersVisualStyles = false,
+                ColumnHeadersDefaultCellStyle = new DataGridViewCellStyle
+                {
+                    BackColor = Color.FromArgb(238, 242, 247),
+                    ForeColor = Text,
+                    Font = SectionFont,
+                    Alignment = DataGridViewContentAlignment.MiddleLeft,
+                    Padding = new Padding(6, 4, 6, 4)
+                },
+                CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal,
+                GridColor = Color.FromArgb(236, 240, 245),
+                RowTemplate = { Height = 28 },
+                Font = BodyFont,
+                Margin = new Padding(0)
+            };
+            g.DefaultCellStyle = new DataGridViewCellStyle
+            {
+                BackColor = Surface,
+                ForeColor = Text,
+                SelectionBackColor = Color.FromArgb(220, 232, 248),
+                SelectionForeColor = Text,
+                Padding = new Padding(6, 2, 6, 2)
+            };
+            return g;
+        }
+
+        public static void StyleTab(TabPage tab)
+        {
+            tab.BackColor = Bg;
+            tab.Padding = new Padding(8);
+        }
+    }
+
     public sealed class MainForm : Form
     {
         // --- status ---
@@ -48,22 +227,28 @@ namespace WatchDogs.Gui
         private Timer _refreshTimer;
         private StatusStrip _statusStrip;
 
-        // in-memory working copy of config
         private AppConfig _cfg;
 
         public MainForm()
         {
             Text = "Watch Dogs — мониторинг служб 1С";
-            Width = 1040;
-            Height = 740;
-            MinimumSize = new Size(900, 640);
+            Width = 1080;
+            Height = 760;
+            MinimumSize = new Size(960, 640);
             StartPosition = FormStartPosition.CenterScreen;
-            Font = new Font("Segoe UI", 9F);
+            Font = Ui.BodyFont;
+            BackColor = Ui.Bg;
             AutoScaleMode = AutoScaleMode.Dpi;
 
             ApplyBackgroundIcon();
 
-            var tabs = new TabControl { Dock = DockStyle.Fill, Padding = new Point(12, 6) };
+            var tabs = new TabControl
+            {
+                Dock = DockStyle.Fill,
+                Padding = new Point(14, 8),
+                Font = Ui.BodyFont,
+                BackColor = Ui.Bg
+            };
 
             var tabStatus = new TabPage("Состояние");
             BuildStatusTab(tabStatus);
@@ -78,13 +263,18 @@ namespace WatchDogs.Gui
             tabs.TabPages.Add(tabSettings);
             tabs.TabPages.Add(tabLog);
 
-            _statusStrip = new StatusStrip();
-            _statusLabel = new ToolStripStatusLabel("Готово");
-            _statusLabel.Spring = true;
-            _statusLabel.TextAlign = ContentAlignment.MiddleLeft;
-            var devLabel = new ToolStripStatusLabel("csl.by · +375 29 337-14-12");
-            devLabel.IsLink = true;
-            devLabel.LinkBehavior = LinkBehavior.HoverUnderline;
+            _statusStrip = new StatusStrip
+            {
+                BackColor = Color.FromArgb(238, 242, 247),
+                SizingGrip = false
+            };
+            _statusLabel = new ToolStripStatusLabel("Готово") { Spring = true, TextAlign = ContentAlignment.MiddleLeft };
+            var devLabel = new ToolStripStatusLabel("csl.by · +375 29 337-14-12")
+            {
+                IsLink = true,
+                LinkBehavior = LinkBehavior.HoverUnderline,
+                ForeColor = Ui.Primary
+            };
             devLabel.Click += (s, e) =>
             {
                 try { Process.Start("http://csl.by"); } catch { /* ignore */ }
@@ -111,84 +301,47 @@ namespace WatchDogs.Gui
         }
 
         // =====================================================================
-        // Background watermark from application icon
+        // Soft icon watermark (cosmetic)
         // =====================================================================
 
         private void ApplyBackgroundIcon()
         {
             try
             {
-                var icon = LoadEmbeddedIcon();
-                if (icon == null)
+                var asm = Assembly.GetExecutingAssembly();
+                var name = asm.GetManifestResourceNames()
+                    .FirstOrDefault(n => n.EndsWith("watchdogs-icon.png", StringComparison.OrdinalIgnoreCase));
+                if (name == null)
                     return;
-
-                BackColor = Color.White;
-                BackgroundImage = CreateWatermark(icon, 900, 700);
-                BackgroundImageLayout = ImageLayout.Tile;
-                icon.Dispose();
+                using (var s = asm.GetManifestResourceStream(name))
+                {
+                    if (s == null)
+                        return;
+                    using (var icon = new Bitmap(s))
+                    using (var tile = new Bitmap(480, 360, PixelFormat.Format32bppArgb))
+                    {
+                        using (var g = Graphics.FromImage(tile))
+                        {
+                            g.Clear(Color.FromArgb(245, 247, 250));
+                            var size = 200;
+                            var cm = new ColorMatrix { Matrix33 = 0.06f };
+                            using (var ia = new ImageAttributes())
+                            {
+                                ia.SetColorMatrix(cm);
+                                g.DrawImage(icon,
+                                    new Rectangle(tile.Width - size - 24, tile.Height - size - 24, size, size),
+                                    0, 0, icon.Width, icon.Height, GraphicsUnit.Pixel, ia);
+                            }
+                        }
+                        BackgroundImage = tile;
+                        BackgroundImageLayout = ImageLayout.Tile;
+                    }
+                }
             }
             catch
             {
-                // background is cosmetic — ignore failures
+                // cosmetic only
             }
-        }
-
-        private static Image LoadEmbeddedIcon()
-        {
-            var asm = Assembly.GetExecutingAssembly();
-            var names = asm.GetManifestResourceNames();
-            var name = names.FirstOrDefault(n => n.EndsWith("watchdogs-icon.png", StringComparison.OrdinalIgnoreCase));
-            if (name == null)
-                return null;
-            using (var s = asm.GetManifestResourceStream(name))
-            {
-                if (s == null)
-                    return null;
-                using (var tmp = new Bitmap(s))
-                {
-                    return new Bitmap(tmp);
-                }
-            }
-        }
-
-        /// <summary>Faded watermark tile so UI stays readable.</summary>
-        private static Image CreateWatermark(Image icon, int w, int h)
-        {
-            var bmp = new Bitmap(w, h, PixelFormat.Format32bppArgb);
-            using (var g = Graphics.FromImage(bmp))
-            {
-                g.Clear(Color.White);
-                g.InterpolationMode = InterpolationMode.HighQualityBicubic;
-
-                // soft rounded panel behind content areas
-                using (var brush = new SolidBrush(Color.FromArgb(18, 0, 90, 160)))
-                {
-                    g.FillRectangle(brush, 0, 0, w, h);
-                }
-
-                // large faded icon bottom-right
-                var size = Math.Min(w, h) * 55 / 100;
-                var x = w - size - 24;
-                var y = h - size - 48;
-                var cm = new ColorMatrix { Matrix33 = 0.10f }; // 10% opacity
-                using (var ia = new ImageAttributes())
-                {
-                    ia.SetColorMatrix(cm);
-                    g.DrawImage(icon, new Rectangle(x, y, size, size),
-                        0, 0, icon.Width, icon.Height, GraphicsUnit.Pixel, ia);
-                }
-
-                // smaller mark top-right
-                var size2 = 72;
-                using (var ia = new ImageAttributes())
-                {
-                    var cm2 = new ColorMatrix { Matrix33 = 0.16f };
-                    ia.SetColorMatrix(cm2);
-                    g.DrawImage(icon, new Rectangle(w - size2 - 16, 12, size2, size2),
-                        0, 0, icon.Width, icon.Height, GraphicsUnit.Pixel, ia);
-                }
-            }
-            return bmp;
         }
 
         // =====================================================================
@@ -197,76 +350,72 @@ namespace WatchDogs.Gui
 
         private void BuildStatusTab(TabPage tab)
         {
+            Ui.StyleTab(tab);
+
             var root = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
-                Padding = new Padding(12),
                 ColumnCount = 2,
-                RowCount = 6,
-                BackColor = Color.FromArgb(252, 252, 254)
+                RowCount = 4,
+                Padding = new Padding(4),
+                BackColor = Ui.Bg
             };
-            root.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 190));
+            root.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 180));
             root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-            root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 
             var title = new Label
             {
-                Text = "Watch Dogs — состояние мониторинга",
-                Font = new Font(Font, FontStyle.Bold),
+                Text = "Состояние мониторинга",
+                Font = Ui.TitleFont,
+                ForeColor = Ui.Text,
                 AutoSize = true,
-                Margin = new Padding(0, 0, 0, 2)
+                Margin = new Padding(4, 4, 0, 10)
             };
             root.Controls.Add(title, 0, 0);
             root.SetColumnSpan(title, 2);
 
-            var devLine = new Label
+            var statusCard = new TableLayoutPanel
             {
-                Text = "Разработчик: csl.by  ·  +375 29 337-14-12",
+                Dock = DockStyle.Top,
                 AutoSize = true,
-                ForeColor = Color.SteelBlue,
-                Margin = new Padding(0, 0, 0, 8)
+                ColumnCount = 2,
+                RowCount = 3,
+                BackColor = Ui.Surface,
+                Padding = new Padding(12, 10, 12, 10),
+                Margin = new Padding(0, 0, 0, 10)
             };
-            root.Controls.Add(devLine, 0, 1);
-            root.SetColumnSpan(devLine, 2);
+            statusCard.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 170));
+            statusCard.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
 
             _lblMonitorHint = new Label
             {
                 AutoSize = false,
-                Height = 36,
+                Height = 34,
                 Text = "",
-                ForeColor = Color.DarkRed,
-                Font = new Font(Font, FontStyle.Bold),
-                Margin = new Padding(0, 0, 0, 8)
+                Font = Ui.BodyFont,
+                ForeColor = Ui.Danger,
+                Margin = new Padding(0, 0, 0, 4)
             };
-            root.Controls.Add(_lblMonitorHint, 0, 2);
-            root.SetColumnSpan(_lblMonitorHint, 2);
 
             _lblMonitorService = MakeInfoLabel();
             _lblEngineState = MakeInfoLabel();
-            AddStatusRow(root, 3, "Служба мониторинга:", _lblMonitorService);
-            // put engine on same visual block — use row 3 second column via nested? keep simple:
-            // Actually AddStatusRow uses two rows; adjust:
-            // We'll put engine state into monitor hint area on refresh instead.
 
-            _gridStatus = new DataGridView
-            {
-                Dock = DockStyle.Fill,
-                ReadOnly = true,
-                AllowUserToAddRows = false,
-                AllowUserToDeleteRows = false,
-                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
-                RowHeadersVisible = false,
-                BackgroundColor = Color.White,
-                BorderStyle = BorderStyle.FixedSingle,
-                SelectionMode = DataGridViewSelectionMode.FullRowSelect,
-                MultiSelect = false,
-                Margin = new Padding(0, 8, 0, 8)
-            };
+            AddStatusRow(statusCard, 0, "Служба мониторинга:", _lblMonitorService);
+            AddStatusRow(statusCard, 1, "Движок:", _lblEngineState);
+            statusCard.Controls.Add(_lblMonitorHint, 0, 2);
+            statusCard.SetColumnSpan(_lblMonitorHint, 2);
+
+            root.Controls.Add(statusCard, 0, 1);
+            root.SetColumnSpan(statusCard, 2);
+
+            _gridStatus = Ui.Grid();
+            root.Controls.Add(_gridStatus, 0, 3);
+            root.SetColumnSpan(_gridStatus, 2);
+
             _gridStatus.Columns.Add("svc", "Служба 1С");
             _gridStatus.Columns.Add("st", "Статус Windows");
             _gridStatus.Columns.Add("ok", "Отвечает");
@@ -282,41 +431,29 @@ namespace WatchDogs.Gui
             _gridStatus.Columns["cnt"].FillWeight = 16;
             _gridStatus.Columns["time"].FillWeight = 18;
 
-            root.Controls.Add(_gridStatus, 0, 4);
-            root.SetColumnSpan(_gridStatus, 2);
-
-            var btnPanel = new FlowLayoutPanel
+            var bar = new Panel
             {
                 Dock = DockStyle.Bottom,
-                Height = 46,
-                Padding = new Padding(8, 6, 8, 4),
-                FlowDirection = FlowDirection.LeftToRight,
-                BackColor = Color.FromArgb(252, 252, 254)
+                Height = 52,
+                BackColor = Ui.Bg,
+                Padding = new Padding(4, 8, 4, 4)
             };
-
-            void AddBtn(string text, EventHandler onClick)
+            var flow = new FlowLayoutPanel
             {
-                var b = new Button
-                {
-                    Text = text,
-                    AutoSize = true,
-                    Padding = new Padding(10, 3, 10, 3),
-                    Margin = new Padding(0, 0, 8, 0)
-                };
-                b.Click += onClick;
-                btnPanel.Controls.Add(b);
-            }
+                Dock = DockStyle.Fill,
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = false
+            };
+            flow.Controls.Add(Ui.Btn("Обновить", (s, e) => RefreshStatus()));
+            flow.Controls.Add(Ui.Btn("Установить службу", async (s, e) => await InstallMonitoringServiceAsync(), primary: true));
+            flow.Controls.Add(Ui.Btn("Запустить", async (s, e) => await ControlMonitoringServiceAsync(true)));
+            flow.Controls.Add(Ui.Btn("Остановить", async (s, e) => await ControlMonitoringServiceAsync(false)));
+            flow.Controls.Add(Ui.Btn("Удалить службу", async (s, e) => await UninstallMonitoringServiceAsync(), danger: true));
+            flow.Controls.Add(Ui.Btn("Открыть логи", (s, e) => OpenLogFolder()));
+            bar.Controls.Add(flow);
 
-            AddBtn("🔄 Обновить", (s, e) => RefreshStatus());
-            AddBtn("⬇ Установить службу мониторинга", async (s, e) => await InstallMonitoringServiceAsync());
-            AddBtn("▶ Запустить", async (s, e) => await ControlMonitoringServiceAsync(true));
-            AddBtn("⏸ Остановить", async (s, e) => await ControlMonitoringServiceAsync(false));
-            AddBtn("🗑 Удалить службу мониторинга", async (s, e) => await UninstallMonitoringServiceAsync());
-            AddBtn("📁 Открыть логи", (s, e) => OpenLogFolder());
-
-            tab.BackColor = Color.FromArgb(252, 252, 254);
             tab.Controls.Add(root);
-            tab.Controls.Add(btnPanel);
+            tab.Controls.Add(bar);
         }
 
         private static void AddStatusRow(TableLayoutPanel root, int row, string caption, Label value)
@@ -325,14 +462,13 @@ namespace WatchDogs.Gui
             {
                 Text = caption,
                 AutoSize = true,
+                Font = Ui.SectionFont,
+                ForeColor = Ui.Muted,
                 Anchor = AnchorStyles.Left,
-                Margin = new Padding(0, 6, 8, 0)
+                Margin = new Padding(0, 8, 8, 0)
             };
-            lbl.Font = new Font(SystemFonts.DefaultFont, FontStyle.Bold);
-
             value.Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top;
-            value.Margin = new Padding(0, 4, 0, 4);
-
+            value.Margin = new Padding(0, 6, 0, 6);
             root.Controls.Add(lbl, 0, row);
             root.Controls.Add(value, 1, row);
         }
@@ -342,107 +478,117 @@ namespace WatchDogs.Gui
             return new Label
             {
                 AutoSize = false,
-                Height = 22,
+                Height = 24,
                 Text = "—",
-                ForeColor = Color.FromArgb(30, 30, 30)
+                Font = Ui.SectionFont,
+                ForeColor = Ui.Text
             };
         }
 
         // =====================================================================
-        // Settings tab — multi-service
+        // Settings tab
         // =====================================================================
 
         private void BuildSettingsTab(TabPage tab)
         {
-            tab.BackColor = Color.FromArgb(252, 252, 254);
+            Ui.StyleTab(tab);
 
             var outer = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
-                Padding = new Padding(12, 8, 12, 0),
                 ColumnCount = 1,
-                RowCount = 5,
-                BackColor = Color.FromArgb(252, 252, 254)
+                RowCount = 4,
+                BackColor = Ui.Bg,
+                Padding = new Padding(4)
             };
             outer.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             outer.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             outer.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
             outer.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            outer.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 
-            var hint = new Label
+            var title = new Label
             {
-                Text = "💡 Каждая служба 1С — отдельный профиль контроля. Нажмите «Сохранить настройки», " +
-                       "и служба мониторинга перечитает конфигурацию при следующей проверке. " +
-                       "Задержка после загрузки — общая для всех. ПКМ по списку — удалить/отключить.",
+                Text = "Профили мониторинга служб",
+                Font = Ui.TitleFont,
+                ForeColor = Ui.Text,
                 AutoSize = true,
-                MaximumSize = new Size(980, 0),
-                ForeColor = Color.DimGray,
+                Margin = new Padding(4, 4, 0, 8)
+            };
+            outer.Controls.Add(title, 0, 0);
+
+            // global boot delay card
+            var globalCard = new TableLayoutPanel
+            {
+                Dock = DockStyle.Top,
+                AutoSize = true,
+                ColumnCount = 3,
+                BackColor = Ui.Surface,
+                Padding = new Padding(12, 10, 12, 10),
                 Margin = new Padding(0, 0, 0, 8)
             };
-            outer.Controls.Add(hint, 0, 0);
-
-            // ---- top: global boot delay ----
-            var globalPanel = new FlowLayoutPanel
+            globalCard.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            globalCard.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            globalCard.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            globalCard.Controls.Add(new Label
             {
+                Text = "Задержка после загрузки (мин):",
                 AutoSize = true,
-                FlowDirection = FlowDirection.LeftToRight,
-                Margin = new Padding(0, 0, 0, 8),
-                BackColor = Color.FromArgb(240, 246, 252)
-            };
-            globalPanel.Controls.Add(new Label
-            {
-                Text = "Задержка после загрузки системы (мин):",
-                AutoSize = true,
-                Margin = new Padding(8, 8, 8, 8)
-            });
-            _numBootDelay = MakeNum(0, 1440, 5);
+                Font = Ui.SectionFont,
+                ForeColor = Ui.Text,
+                Anchor = AnchorStyles.Left,
+                Margin = new Padding(0, 8, 12, 0)
+            }, 0, 0);
+            _numBootDelay = Ui.Num(0, 1440, 5);
             _numBootDelay.Margin = new Padding(0, 4, 16, 4);
-            globalPanel.Controls.Add(_numBootDelay);
-            globalPanel.Controls.Add(new Label
+            globalCard.Controls.Add(_numBootDelay, 1, 0);
+            globalCard.Controls.Add(new Label
             {
-                Text = "— общая: сначала ждём этот интервал, затем проверяем все службы из списка.",
+                Text = "Общая: сначала ждём этот интервал, затем проверяем все службы из списка.",
                 AutoSize = true,
-                ForeColor = Color.DimGray,
-                Margin = new Padding(0, 8, 8, 8)
-            });
-            outer.Controls.Add(globalPanel, 0, 1);
+                Font = Ui.BodyFont,
+                ForeColor = Ui.Muted,
+                Anchor = AnchorStyles.Left,
+                Margin = new Padding(0, 8, 0, 0)
+            }, 2, 0);
+            outer.Controls.Add(globalCard, 0, 1);
 
-            // ---- middle: split list | detail ----
-            // Never set Panel1MinSize/Panel2MinSize here: SplitContainer is not
-            // sized yet and throws InvalidOperationException (startup crash).
+            // list | detail — no Panel*MinSize (startup crash)
             var split = new SplitContainer
             {
                 Dock = DockStyle.Fill,
                 Orientation = Orientation.Vertical,
                 SplitterDistance = 300,
                 FixedPanel = FixedPanel.Panel1,
+                BackColor = Ui.Bg,
                 Margin = new Padding(0)
             };
 
-            // left: service list
-            var left = new Panel { Dock = DockStyle.Fill, Padding = new Padding(0, 0, 8, 0) };
-            var listTitle = new Label
+            var left = new Panel
             {
-                Text = "Службы в мониторинге:",
-                Dock = DockStyle.Top,
-                Height = 24,
-                Font = new Font(Font, FontStyle.Bold)
+                Dock = DockStyle.Fill,
+                BackColor = Ui.Surface,
+                Padding = new Padding(10, 10, 10, 10),
+                Margin = new Padding(0, 0, 8, 0)
             };
+            var listTitle = Ui.Section("Службы в мониторинге");
+            listTitle.Dock = DockStyle.Top;
+            listTitle.Height = 24;
+
             _listServices = new ListBox
             {
                 Dock = DockStyle.Fill,
                 DisplayMember = "Title",
                 IntegralHeight = false,
-                BorderStyle = BorderStyle.FixedSingle
+                BorderStyle = BorderStyle.FixedSingle,
+                Font = Ui.BodyFont,
+                BackColor = Ui.Surface
             };
             _listServices.SelectedIndexChanged += (s, e) => ShowSelectedService();
 
-            // right-click: delete / disable selected service
-            var listMenu = new ContextMenuStrip();
-            var miDelete = new ToolStripMenuItem("🗑 Удалить из мониторинга");
+            var listMenu = new ContextMenuStrip { Font = Ui.BodyFont };
+            var miDelete = new ToolStripMenuItem("Удалить из мониторинга");
             miDelete.Click += (s, e) => DeleteSelectedService();
-            var miToggle = new ToolStripMenuItem("⏸ Отключить / включить");
+            var miToggle = new ToolStripMenuItem("Отключить / включить");
             miToggle.Click += (s, e) => ToggleSelectedService();
             listMenu.Items.Add(miDelete);
             listMenu.Items.Add(miToggle);
@@ -457,52 +603,44 @@ namespace WatchDogs.Gui
             var listBtns = new TableLayoutPanel
             {
                 Dock = DockStyle.Bottom,
-                Height = 76,
+                Height = 48,
                 ColumnCount = 2,
                 RowCount = 1,
-                Padding = new Padding(0, 6, 0, 0)
+                Padding = new Padding(0, 8, 0, 0),
+                BackColor = Ui.Surface
             };
             listBtns.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 55));
             listBtns.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 45));
-            listBtns.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
-            _btnAddSvc = new Button
-            {
-                Text = "➕ Добавить",
-                Dock = DockStyle.Fill,
-                Height = 30,
-                Margin = new Padding(0, 0, 4, 0)
-            };
-            _btnAddSvc.Click += (s, e) => AddService();
+            _btnAddSvc = Ui.Btn("Добавить", (s, e) => AddService());
+            _btnAddSvc.Dock = DockStyle.Fill;
+            _btnAddSvc.Margin = new Padding(0, 0, 4, 0);
+            _btnAddSvc.Height = Ui.BtnHeight;
 
-            _btnDeleteSvc = new Button
-            {
-                Text = "🗑 Удалить",
-                Dock = DockStyle.Fill,
-                Height = 30,
-                Margin = new Padding(4, 0, 0, 0),
-                ForeColor = Color.Firebrick
-            };
-            _btnDeleteSvc.Click += (s, e) => DeleteSelectedService();
-
-            var listTip = new ToolTip { InitialDelay = 400, ShowAlways = true };
-            listTip.SetToolTip(_btnAddSvc, "Добавить новую службу 1С в список мониторинга");
-            listTip.SetToolTip(_btnDeleteSvc, "Убрать выбранную службу из мониторинга (Windows-служба не удаляется)");
-            listTip.SetToolTip(_listServices, "ЛКМ — выбрать · ПКМ — удалить или отключить");
+            _btnDeleteSvc = Ui.Btn("Удалить", (s, e) => DeleteSelectedService(), danger: true);
+            _btnDeleteSvc.Dock = DockStyle.Fill;
+            _btnDeleteSvc.Margin = new Padding(4, 0, 0, 0);
+            _btnDeleteSvc.Height = Ui.BtnHeight;
 
             listBtns.Controls.Add(_btnAddSvc, 0, 0);
             listBtns.Controls.Add(_btnDeleteSvc, 1, 0);
+
+            var tip = new ToolTip { InitialDelay = 400, ShowAlways = true };
+            tip.SetToolTip(_btnAddSvc, "Добавить службу 1С в список мониторинга");
+            tip.SetToolTip(_btnDeleteSvc, "Убрать службу из списка (Windows-служба не удаляется)");
+            tip.SetToolTip(_listServices, "ЛКМ — выбрать · ПКМ — удалить или отключить");
 
             left.Controls.Add(_listServices);
             left.Controls.Add(listBtns);
             left.Controls.Add(listTitle);
 
-            // right: detail form
             _detailPanel = new Panel
             {
                 Dock = DockStyle.Fill,
                 AutoScroll = true,
-                Padding = new Padding(8, 0, 0, 0)
+                BackColor = Ui.Surface,
+                Padding = new Padding(14, 10, 14, 10),
+                Margin = new Padding(8, 0, 0, 0)
             };
             BuildDetailControls(_detailPanel);
 
@@ -510,41 +648,43 @@ namespace WatchDogs.Gui
             split.Panel2.Controls.Add(_detailPanel);
             outer.Controls.Add(split, 0, 2);
 
-            // ---- save bar ----
+            // action bar
             var btnPanel = new FlowLayoutPanel
             {
-                Dock = DockStyle.Bottom,
-                Height = 48,
-                Padding = new Padding(0, 10, 0, 6),
-                FlowDirection = FlowDirection.LeftToRight
+                Dock = DockStyle.Fill,
+                Height = 52,
+                Padding = new Padding(4, 8, 4, 4),
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = false,
+                BackColor = Ui.Bg
             };
-
-            _btnSave = MakeActionButton("💾 Сохранить настройки", async (s, e) => await SaveSettingsAsync(), true);
-            var btnReload = MakeActionButton("🔄 Загрузить текущие", (s, e) => LoadConfigUi(), false);
-            var btnTest = MakeActionButton("🩺 Проверить выбранную", async (s, e) => await TestCheckAsync(), false);
-            var btnRestart = MakeActionButton("🔁 Перезапустить выбранную", async (s, e) => await RestartFromSettingsAsync(), false);
-
+            _btnSave = Ui.Btn("Сохранить настройки", async (s, e) => await SaveSettingsAsync(), primary: true);
+            var btnReload = Ui.Btn("Загрузить текущие", (s, e) => LoadConfigUi());
+            var btnTest = Ui.Btn("Проверить выбранную", async (s, e) => await TestCheckAsync());
+            var btnRestart = Ui.Btn("Перезапустить выбранную", async (s, e) => await RestartFromSettingsAsync());
             btnPanel.Controls.Add(_btnSave);
             btnPanel.Controls.Add(btnReload);
             btnPanel.Controls.Add(btnTest);
             btnPanel.Controls.Add(btnRestart);
             outer.Controls.Add(btnPanel, 0, 3);
 
-            // developer footer
-            var foot = new Label
-            {
-                Text = "csl.by · +375 29 337-14-12",
-                AutoSize = true,
-                ForeColor = Color.SteelBlue,
-                Margin = new Padding(0, 4, 0, 8)
-            };
-            outer.Controls.Add(foot, 0, 4);
-
             tab.Controls.Add(outer);
         }
 
         private void BuildDetailControls(Panel parent)
         {
+            var head = new Label
+            {
+                Text = "Параметры выбранной службы",
+                Font = Ui.TitleFont,
+                ForeColor = Ui.Text,
+                AutoSize = true,
+                Dock = DockStyle.Top,
+                Height = 32,
+                Margin = new Padding(0, 0, 0, 8)
+            };
+            parent.Controls.Add(head);
+
             var tlp = new TableLayoutPanel
             {
                 Dock = DockStyle.Top,
@@ -552,7 +692,7 @@ namespace WatchDogs.Gui
                 ColumnCount = 2,
                 Padding = new Padding(0, 4, 0, 4)
             };
-            tlp.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 240));
+            tlp.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 220));
             tlp.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
 
             int row = 0;
@@ -565,17 +705,21 @@ namespace WatchDogs.Gui
                 {
                     Text = caption,
                     AutoSize = true,
+                    Font = Ui.BodyFont,
+                    ForeColor = Ui.Muted,
                     Anchor = AnchorStyles.Left,
-                    Margin = new Padding(0, 7, 8, 0)
+                    Margin = new Padding(0, 10, 12, 0)
                 };
                 c.Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top;
-                c.Margin = new Padding(0, 4, 0, 4);
+                c.Margin = new Padding(0, 6, 0, 6);
+                if (c is TextBox || c is ComboBox || c is NumericUpDown)
+                    c.Height = Ui.InputHeight;
                 tlp.Controls.Add(lbl, 0, row);
                 tlp.Controls.Add(c, 1, row);
                 row++;
             }
 
-            _txtDisplayName = new TextBox { Dock = DockStyle.Fill };
+            _txtDisplayName = new TextBox { Dock = DockStyle.Fill, Font = Ui.BodyFont };
             Row("Отображаемое имя:", _txtDisplayName);
 
             _cbTargetService = new ComboBox
@@ -583,17 +727,26 @@ namespace WatchDogs.Gui
                 DropDownStyle = ComboBoxStyle.DropDown,
                 AutoCompleteMode = AutoCompleteMode.SuggestAppend,
                 AutoCompleteSource = AutoCompleteSource.ListItems,
-                Dock = DockStyle.Fill
+                Dock = DockStyle.Fill,
+                Font = Ui.BodyFont
             };
-            var pickPanel = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true };
-            _cbTargetService.Width = 320;
-            var btnPick = new Button { Text = "Из списка…", AutoSize = true, Padding = new Padding(10, 2, 10, 2) };
-            btnPick.Click += (s, e) => PickService();
+            var pickPanel = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, Height = 34 };
+            _cbTargetService.Width = 300;
+            _cbTargetService.Height = Ui.InputHeight;
+            var btnPick = Ui.Btn("Из списка…", (s, e) => PickService());
+            btnPick.Height = Ui.InputHeight;
+            btnPick.Margin = new Padding(8, 2, 0, 0);
             pickPanel.Controls.Add(_cbTargetService);
             pickPanel.Controls.Add(btnPick);
             Row("Служба Windows (Name):", pickPanel);
 
-            _cbCheckType = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Dock = DockStyle.Fill };
+            _cbCheckType = new ComboBox
+            {
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                Dock = DockStyle.Fill,
+                Font = Ui.BodyFont,
+                Height = Ui.InputHeight
+            };
             _cbCheckType.Items.AddRange(new object[]
             {
                 "Статус службы (Running)",
@@ -602,80 +755,46 @@ namespace WatchDogs.Gui
             });
             Row("Тип проверки:", _cbCheckType);
 
-            _txtTcpHost = new TextBox { Dock = DockStyle.Fill, Text = "localhost" };
+            _txtTcpHost = new TextBox { Dock = DockStyle.Fill, Font = Ui.BodyFont, Text = "localhost" };
             Row("TCP хост:", _txtTcpHost);
 
-            _numTcpPort = MakeNum(1, 65535, 1541);
-            _numTcpPort.Width = 120;
+            _numTcpPort = Ui.Num(1, 65535, 1541);
             Row("TCP порт:", _numTcpPort);
 
-            _txtHttpUrl = new TextBox { Dock = DockStyle.Fill, Text = "http://localhost/health" };
+            _txtHttpUrl = new TextBox { Dock = DockStyle.Fill, Font = Ui.BodyFont, Text = "http://localhost/health" };
             Row("HTTP URL:", _txtHttpUrl);
 
-            _numInterval = MakeNum(5, 86400, 30);
+            _numInterval = Ui.Num(5, 86400, 30);
             Row("Интервал проверки (сек):", _numInterval);
 
-            _numTimeout = MakeNum(1, 300, 10);
+            _numTimeout = Ui.Num(1, 300, 10);
             Row("Таймаут ответа (сек):", _numTimeout);
 
-            _chkSvcEnabled = new CheckBox { Text = "Мониторинг этой службы включён", AutoSize = true, Checked = true };
+            _chkSvcEnabled = new CheckBox
+            {
+                Text = "Мониторинг этой службы включён",
+                AutoSize = true,
+                Checked = true,
+                Font = Ui.BodyFont
+            };
             Row("Включение:", _chkSvcEnabled);
 
             _chkAutoRestart = new CheckBox
             {
                 Text = "Автоперезапуск при отказе",
                 AutoSize = true,
-                Checked = true
+                Checked = true,
+                Font = Ui.BodyFont
             };
             Row("Перезапуск:", _chkAutoRestart);
 
-            _numMaxRestarts = MakeNum(1, 100, 5);
+            _numMaxRestarts = Ui.Num(1, 100, 5);
             Row("Макс. перезапусков подряд:", _numMaxRestarts);
 
-            _numCooldown = MakeNum(0, 1440, 5);
+            _numCooldown = Ui.Num(0, 1440, 5);
             Row("Пауза между перезапусками (мин):", _numCooldown);
 
             parent.Controls.Add(tlp);
-        }
-
-        private static GroupBox MakeGroup(string text)
-        {
-            return new GroupBox
-            {
-                Text = text,
-                Dock = DockStyle.Fill,
-                AutoSize = true,
-                AutoSizeMode = AutoSizeMode.GrowAndShrink,
-                Padding = new Padding(10, 6, 10, 8),
-                Margin = new Padding(0, 0, 0, 8)
-            };
-        }
-
-        private static NumericUpDown MakeNum(decimal min, decimal max, decimal val)
-        {
-            return new NumericUpDown
-            {
-                Minimum = min,
-                Maximum = max,
-                Value = val,
-                Width = 120,
-                Margin = new Padding(0, 4, 0, 4)
-            };
-        }
-
-        private static Button MakeActionButton(string text, EventHandler onClick, bool primary)
-        {
-            var b = new Button
-            {
-                Text = text,
-                AutoSize = true,
-                Padding = new Padding(12, 4, 12, 4),
-                Margin = new Padding(0, 0, 8, 0)
-            };
-            if (primary)
-                b.Font = new Font(SystemFonts.DefaultFont, FontStyle.Bold);
-            b.Click += onClick;
-            return b;
         }
 
         // =====================================================================
@@ -684,8 +803,32 @@ namespace WatchDogs.Gui
 
         private void BuildLogTab(TabPage tab)
         {
-            tab.BackColor = Color.FromArgb(252, 252, 254);
-            var panel = new Panel { Dock = DockStyle.Fill, Padding = new Padding(8), BackColor = Color.White };
+            Ui.StyleTab(tab);
+
+            var bar = new Panel
+            {
+                Dock = DockStyle.Bottom,
+                Height = 52,
+                BackColor = Ui.Bg,
+                Padding = new Padding(4, 8, 4, 4)
+            };
+            var flow = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = false
+            };
+            flow.Controls.Add(Ui.Btn("Обновить журнал", (s, e) => LoadLog(), primary: true));
+            flow.Controls.Add(Ui.Btn("Открыть папку", (s, e) => OpenLogFolder()));
+            bar.Controls.Add(flow);
+
+            var card = new Panel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = Ui.Surface,
+                Padding = new Padding(10),
+                Margin = new Padding(0, 0, 0, 4)
+            };
 
             _txtLog = new TextBox
             {
@@ -694,28 +837,17 @@ namespace WatchDogs.Gui
                 ScrollBars = ScrollBars.Both,
                 WordWrap = false,
                 Dock = DockStyle.Fill,
-                Font = new Font("Consolas", 9F),
-                BackColor = Color.White
+                Font = Ui.MonoFont,
+                BackColor = Ui.Surface,
+                ForeColor = Ui.Text,
+                BorderStyle = BorderStyle.FixedSingle
             };
 
-            var logButtons = new FlowLayoutPanel
-            {
-                Dock = DockStyle.Bottom,
-                Height = 40,
-                Padding = new Padding(4),
-                FlowDirection = FlowDirection.LeftToRight
-            };
-            var btnRefreshLog = new Button { Text = "Обновить журнал", AutoSize = true, Padding = new Padding(10, 3, 10, 3) };
-            btnRefreshLog.Click += (s, e) => LoadLog();
-            var btnOpenLogDir = new Button { Text = "Открыть папку", AutoSize = true, Padding = new Padding(10, 3, 10, 3) };
-            btnOpenLogDir.Click += (s, e) => OpenLogFolder();
-            logButtons.Controls.Add(btnRefreshLog);
-            logButtons.Controls.Add(btnOpenLogDir);
-
-            panel.Controls.Add(_txtLog);
-            panel.Controls.Add(logButtons);
-            tab.Controls.Add(panel);
+            card.Controls.Add(_txtLog);
+            tab.Controls.Add(card);
+            tab.Controls.Add(bar);
         }
+
 
         // =====================================================================
         // Status logic
@@ -1308,7 +1440,6 @@ namespace WatchDogs.Gui
         }
     }
 
-    /// <summary>Modal dialog to pick an installed Windows service.</summary>
     internal sealed class ServicePickerForm : Form
     {
         private readonly ListBox _list;
